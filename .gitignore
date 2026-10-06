@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+
+# Локальная база данных (личные данные)
+finance.db
+
+# Примеры выписок (личные данные)
+example/
+
+# Виртуальное окружение
+venv/
+
+# Сборки PyInstaller
+dist/
+build/
+*.spec~

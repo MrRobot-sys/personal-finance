@@ -1,0 +1,28 @@
+name: build-windows-exe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install PyInstaller
+        run: python -m pip install pyinstaller
+
+      - name: Build exe
+        run: python -m PyInstaller --noconfirm --clean finance.spec
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PersonalFinance-windows
+          path: dist/PersonalFinance.exe
