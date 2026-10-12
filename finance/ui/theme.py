@@ -26,6 +26,7 @@ CHIP = {
     "income": ("#ECFDF5", "#047857"),
     "expense": ("#FEF2F2", "#B91C1C"),
     "balance": ("#EFF6FF", "#1D4ED8"),
+    "invest": ("#F5F3FF", "#6D28D9"),
 }
 
 
@@ -102,6 +103,17 @@ def apply_theme(root: tk.Misc) -> ttk.Style:
         "Danger.TButton",
         background=[("active", "#FEE2E2"), ("pressed", "#FECACA")],
         foreground=[("active", DANGER)],
+    )
+
+    style.configure(
+        "Compact.TButton",
+        background=ACCENT, foreground="white",
+        borderwidth=0, relief="flat", padding=(6, 1), font=small_bold,
+    )
+    style.map(
+        "Compact.TButton",
+        background=[("active", ACCENT_HOVER), ("pressed", ACCENT_HOVER)],
+        foreground=[("active", "white")],
     )
 
     style.configure(

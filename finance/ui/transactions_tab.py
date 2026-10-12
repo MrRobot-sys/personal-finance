@@ -9,6 +9,7 @@ from ..importers import ImportFormatError, read_operations
 from ..models import (
     EXPENSE,
     INCOME,
+    INVEST,
     KIND_LABELS,
     ValidationError,
     format_amount,
@@ -20,8 +21,13 @@ from .widgets import PlaceholderEntry, TreeTable, make_card, row, run_dialog
 
 ALL_TYPES = "Все типы"
 ALL_CATEGORIES = "Все категории"
-TYPE_TO_KIND = {ALL_TYPES: None, "Доходы": INCOME, "Расходы": EXPENSE}
-KIND_TO_TYPE = {INCOME: "Доходы", EXPENSE: "Расходы"}
+TYPE_TO_KIND = {
+    ALL_TYPES: None,
+    "Доходы": INCOME,
+    "Расходы": EXPENSE,
+    "Инвестиции": INVEST,
+}
+KIND_TO_TYPE = {INCOME: "Доходы", EXPENSE: "Расходы", INVEST: "Инвестиции"}
 
 
 class TransactionsTab(ttk.Frame):
@@ -161,10 +167,14 @@ class TransactionsTab(ttk.Frame):
             )
         self.table.set_rows(rows)
         income, expense = self.service.filtered_totals(transactions)
-        self.totals_var.set(
+        invested = sum(t.amount for t in transactions if t.kind == INVEST)
+        text = (
             f"Доходы: {format_amount(income)}   ·   Расходы: {format_amount(expense)}"
             f"   ·   Баланс: {format_amount(income - expense)}"
         )
+        if invested:
+            text += f"   ·   Инвестировано: {format_amount(invested)}"
+        self.totals_var.set(text)
 
     def _reset(self) -> None:
         self.date_from.show_placeholder()

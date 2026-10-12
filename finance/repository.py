@@ -7,9 +7,17 @@ from datetime import date
 from .models import (
     INCOME,
     EXPENSE,
+    INVEST,
+    BUY,
+    MARKET_PHYSICAL,
+    Asset,
     Category,
     CategoryPlan,
     MonthSummary,
+    Payout,
+    PayoutRule,
+    PricePoint,
+    Trade,
     Transaction,
     month_range,
     previous_months,
@@ -280,13 +288,22 @@ class Repository:
             self._kind_sum(EXPENSE, date_from, date_to),
         )
 
+    def invested_total(self) -> float:
+        """Сумма всех инвестиционных операций (внесено в пул)."""
+        row = self.conn.execute(
+            "SELECT COALESCE(SUM(t.amount), 0) FROM transactions t "
+            "JOIN categories c ON c.id = t.category_id WHERE c.kind = ?",
+            (INVEST,),
+        ).fetchone()
+        return float(row[0])
+
     def category_totals(
         self, date_from: date, date_to: date
     ) -> list[tuple[str, str, float]]:
         rows = self._rows(
             "SELECT c.name, c.kind, COALESCE(SUM(t.amount), 0) AS total "
             "FROM transactions t JOIN categories c ON c.id = t.category_id "
-            "WHERE t.txn_date BETWEEN ? AND ? "
+            "WHERE t.txn_date BETWEEN ? AND ? AND c.kind IN ('income', 'expense') "
             "GROUP BY c.id ORDER BY total DESC",
             (date_from.isoformat(), date_to.isoformat()),
         )
@@ -295,7 +312,8 @@ class Repository:
     def monthly_totals(self, year: int, month: int) -> MonthSummary:
         start, end = month_range(year, month)
         income, expense = self.period_totals(start, end)
-        return MonthSummary(year, month, income, expense)
+        invested = self._kind_sum(INVEST, start, end)
+        return MonthSummary(year, month, income, expense, invested)
 
     def monthly_series(self, year: int, month: int, count: int = 12) -> list[MonthSummary]:
         months = previous_months(year, month, count)
@@ -323,3 +341,417 @@ class Repository:
             "SELECT category_id, COUNT(*) AS cnt FROM transactions GROUP BY category_id"
         )
         return {r["category_id"]: int(r["cnt"]) for r in rows}
+
+    # --- активы, сделки и оценки ---
+
+    _ASSET_COLUMNS = (
+        "id, market, ticker, name, currency, category, details, "
+        "depreciation_rate, note"
+    )
+
+    def list_assets(self, scope: str | None = None) -> list[Asset]:
+        sql = f"SELECT {self._ASSET_COLUMNS} FROM assets"
+        if scope == "property":
+            sql += " WHERE market = ?"
+            params: tuple = (MARKET_PHYSICAL,)
+        elif scope == "securities":
+            sql += " WHERE market != ?"
+            params = (MARKET_PHYSICAL,)
+        else:
+            params = ()
+        sql += " ORDER BY market, name COLLATE NOCASE"
+        positions = self._positions()
+        prices = self._last_prices()
+        return [
+            self._read_asset(r, positions.get(r["id"]), prices.get(r["id"]))
+            for r in self._rows(sql, params)
+        ]
+
+    def get_asset(self, asset_id: int) -> Asset | None:
+        row = self.conn.execute(
+            f"SELECT {self._ASSET_COLUMNS} FROM assets WHERE id = ?", (asset_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        positions = self._positions(asset_id)
+        prices = self._last_prices(asset_id)
+        return self._read_asset(row, positions.get(asset_id), prices.get(asset_id))
+
+    @staticmethod
+    def _read_asset(
+        row: sqlite3.Row,
+        position: dict | None = None,
+        price: sqlite3.Row | None = None,
+    ) -> Asset:
+        position = position or {}
+        return Asset(
+            id=row["id"],
+            name=row["name"],
+            market=row["market"],
+            ticker=row["ticker"] or "",
+            currency=row["currency"],
+            category=row["category"],
+            details=row["details"],
+            depreciation_rate=row["depreciation_rate"],
+            note=row["note"],
+            quantity=position.get("quantity", 0.0),
+            avg_price=position.get("avg_price", 0.0),
+            invested=position.get("invested", 0.0),
+            proceeds=position.get("proceeds", 0.0),
+            realized=position.get("realized", 0.0),
+            first_buy=position.get("first_buy"),
+            last_price=float(price["price"]) if price is not None else None,
+            last_price_at=price["fetched_at"] if price is not None else "",
+            price_source=price["source"] if price is not None else "",
+        )
+
+    def _positions(self, asset_id: int | None = None) -> dict[int, dict]:
+        """Считает количество, среднюю цену, вложения и реализованный итог
+        по сделкам (средняя стоимость покупки, продажи её не меняют)."""
+        sql = (
+            "SELECT asset_id, kind, quantity, price, fee, trade_date "
+            "FROM trades"
+        )
+        params: tuple = ()
+        if asset_id is not None:
+            sql += " WHERE asset_id = ?"
+            params = (asset_id,)
+        sql += " ORDER BY trade_date, id"
+        raw: dict[int, dict] = {}
+        for r in self._rows(sql, params):
+            acc = raw.setdefault(r["asset_id"], {
+                "buy_qty": 0.0, "buy_cost": 0.0,
+                "sell_qty": 0.0, "sell_proceeds": 0.0,
+                "first_buy": None,
+            })
+            qty = float(r["quantity"])
+            price = float(r["price"])
+            fee = float(r["fee"])
+            if r["kind"] == BUY:
+                acc["buy_qty"] += qty
+                acc["buy_cost"] += qty * price + fee
+                day = date.fromisoformat(r["trade_date"])
+                if acc["first_buy"] is None or day < acc["first_buy"]:
+                    acc["first_buy"] = day
+            else:
+                acc["sell_qty"] += qty
+                acc["sell_proceeds"] += qty * price - fee
+        result: dict[int, dict] = {}
+        for aid, acc in raw.items():
+            avg = acc["buy_cost"] / acc["buy_qty"] if acc["buy_qty"] else 0.0
+            result[aid] = {
+                "quantity": acc["buy_qty"] - acc["sell_qty"],
+                "avg_price": avg,
+                "invested": acc["buy_cost"],
+                "proceeds": acc["sell_proceeds"],
+                "realized": acc["sell_proceeds"] - acc["sell_qty"] * avg,
+                "first_buy": acc["first_buy"],
+            }
+        return result
+
+    def _last_prices(self, asset_id: int | None = None) -> dict[int, sqlite3.Row]:
+        sql = (
+            "SELECT asset_id, price, currency, source, fetched_at FROM prices"
+        )
+        params: tuple = ()
+        if asset_id is not None:
+            sql += " WHERE asset_id = ?"
+            params = (asset_id,)
+        sql += " ORDER BY fetched_at, id"
+        latest: dict[int, sqlite3.Row] = {}
+        for r in self._rows(sql, params):
+            latest[r["asset_id"]] = r
+        return latest
+
+    def asset_by_ticker(self, ticker: str, market: str) -> Asset | None:
+        row = self.conn.execute(
+            f"SELECT {self._ASSET_COLUMNS} FROM assets "
+            "WHERE ticker = ? COLLATE NOCASE AND market = ?",
+            (ticker, market),
+        ).fetchone()
+        return self._read_asset(row) if row else None
+
+    def add_asset(
+        self, name: str, market: str, ticker: str = "", currency: str = "RUB",
+        category: str = "", details: str = "", depreciation_rate: float | None = None,
+        note: str = "",
+    ) -> int:
+        with self.conn:
+            cur = self.conn.execute(
+                "INSERT INTO assets (market, ticker, name, currency, category, "
+                "details, depreciation_rate, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    market, ticker or None, name, currency, category,
+                    details, depreciation_rate, note,
+                ),
+            )
+        return int(cur.lastrowid)
+
+    def update_asset(
+        self, asset_id: int, name: str, market: str, ticker: str = "",
+        currency: str = "RUB", category: str = "", details: str = "",
+        depreciation_rate: float | None = None, note: str = "",
+    ) -> None:
+        with self.conn:
+            self.conn.execute(
+                "UPDATE assets SET market = ?, ticker = ?, name = ?, currency = ?, "
+                "category = ?, details = ?, depreciation_rate = ?, note = ? "
+                "WHERE id = ?",
+                (
+                    market, ticker or None, name, currency, category,
+                    details, depreciation_rate, note, asset_id,
+                ),
+            )
+
+    def delete_asset(self, asset_id: int) -> None:
+        with self.conn:
+            self.conn.execute("DELETE FROM assets WHERE id = ?", (asset_id,))
+
+    def add_trade(
+        self, asset_id: int, kind: str, quantity: float, price: float,
+        trade_date: date, fee: float = 0.0, note: str = "",
+    ) -> int:
+        with self.conn:
+            cur = self.conn.execute(
+                "INSERT INTO trades (asset_id, kind, quantity, price, fee, "
+                "trade_date, note) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    asset_id, kind, quantity, price, fee,
+                    trade_date.isoformat(), note.strip(),
+                ),
+            )
+        return int(cur.lastrowid)
+
+    def list_trades(self, asset_id: int) -> list[Trade]:
+        rows = self._rows(
+            "SELECT id, asset_id, kind, quantity, price, fee, trade_date, note "
+            "FROM trades WHERE asset_id = ? ORDER BY trade_date DESC, id DESC",
+            (asset_id,),
+        )
+        return [
+            Trade(
+                id=r["id"], asset_id=r["asset_id"], kind=r["kind"],
+                quantity=float(r["quantity"]), price=float(r["price"]),
+                fee=float(r["fee"]), trade_date=date.fromisoformat(r["trade_date"]),
+                note=r["note"],
+            )
+            for r in rows
+        ]
+
+    def delete_trade(self, trade_id: int) -> None:
+        with self.conn:
+            self.conn.execute("DELETE FROM trades WHERE id = ?", (trade_id,))
+
+    def add_price(
+        self, asset_id: int, price: float, currency: str, source: str,
+        fetched_at: str | None = None,
+    ) -> int:
+        with self.conn:
+            if fetched_at:
+                cur = self.conn.execute(
+                    "INSERT INTO prices (asset_id, price, currency, source, fetched_at) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (asset_id, price, currency, source.strip(), fetched_at),
+                )
+            else:
+                cur = self.conn.execute(
+                    "INSERT INTO prices (asset_id, price, currency, source) "
+                    "VALUES (?, ?, ?, ?)",
+                    (asset_id, price, currency, source.strip()),
+                )
+        return int(cur.lastrowid)
+
+    def list_prices(self) -> list[PricePoint]:
+        rows = self._rows(
+            "SELECT asset_id, price, currency, source, fetched_at "
+            "FROM prices ORDER BY fetched_at, id"
+        )
+        return [
+            PricePoint(
+                asset_id=r["asset_id"], price=float(r["price"]),
+                currency=r["currency"], source=r["source"],
+                fetched_at=r["fetched_at"],
+            )
+            for r in rows
+        ]
+
+    # --- выплаты ---
+
+    _PAYOUT_SELECT = """
+    SELECT p.id, p.asset_id, p.kind, p.pay_date, p.rate, p.amount, p.currency,
+           p.status, p.received_date, p.source, p.rule_id, p.note,
+           a.name AS asset_name
+    FROM payouts p JOIN assets a ON a.id = p.asset_id
+    """
+
+    @staticmethod
+    def _read_payout(row: sqlite3.Row) -> Payout:
+        return Payout(
+            id=row["id"],
+            asset_id=row["asset_id"],
+            kind=row["kind"],
+            pay_date=date.fromisoformat(row["pay_date"]),
+            rate=float(row["rate"]) if row["rate"] is not None else None,
+            amount=float(row["amount"]) if row["amount"] is not None else None,
+            currency=row["currency"],
+            status=row["status"],
+            received_date=(
+                date.fromisoformat(row["received_date"])
+                if row["received_date"] else None
+            ),
+            source=row["source"],
+            rule_id=row["rule_id"],
+            note=row["note"],
+            asset_name=row["asset_name"],
+        )
+
+    def list_payouts(
+        self,
+        asset_id: int | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
+    ) -> list[Payout]:
+        sql = self._PAYOUT_SELECT
+        clauses: list[str] = []
+        params: list = []
+        if asset_id is not None:
+            clauses.append("p.asset_id = ?")
+            params.append(asset_id)
+        if date_from:
+            clauses.append("p.pay_date >= ?")
+            params.append(date_from.isoformat())
+        if date_to:
+            clauses.append("p.pay_date <= ?")
+            params.append(date_to.isoformat())
+        if clauses:
+            sql += " WHERE " + " AND ".join(clauses)
+        sql += " ORDER BY p.pay_date, p.id"
+        return [self._read_payout(r) for r in self._rows(sql, tuple(params))]
+
+    def get_payout(self, payout_id: int) -> Payout | None:
+        row = self.conn.execute(
+            self._PAYOUT_SELECT + " WHERE p.id = ?", (payout_id,)
+        ).fetchone()
+        return self._read_payout(row) if row else None
+
+    def add_payout(
+        self, asset_id: int, kind: str, pay_date: date, rate: float | None = None,
+        amount: float | None = None, currency: str = "RUB",
+        status: str = "expected", received_date: date | None = None,
+        source: str = "", rule_id: int | None = None, note: str = "",
+    ) -> int:
+        with self.conn:
+            cur = self.conn.execute(
+                "INSERT INTO payouts (asset_id, kind, pay_date, rate, amount, "
+                "currency, status, received_date, source, rule_id, note) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    asset_id, kind, pay_date.isoformat(), rate, amount, currency,
+                    status, received_date.isoformat() if received_date else None,
+                    source.strip(), rule_id, note.strip(),
+                ),
+            )
+        return int(cur.lastrowid)
+
+    def update_payout(
+        self, payout_id: int, kind: str, pay_date: date, rate: float | None = None,
+        amount: float | None = None, currency: str = "RUB",
+        status: str = "expected", received_date: date | None = None,
+        note: str = "",
+    ) -> None:
+        with self.conn:
+            self.conn.execute(
+                "UPDATE payouts SET kind = ?, pay_date = ?, rate = ?, amount = ?, "
+                "currency = ?, status = ?, received_date = ?, note = ? WHERE id = ?",
+                (
+                    kind, pay_date.isoformat(), rate, amount, currency, status,
+                    received_date.isoformat() if received_date else None,
+                    note.strip(), payout_id,
+                ),
+            )
+
+    def delete_payout(self, payout_id: int) -> None:
+        with self.conn:
+            self.conn.execute("DELETE FROM payouts WHERE id = ?", (payout_id,))
+
+    def delete_payouts_by_rule(self, rule_id: int) -> None:
+        with self.conn:
+            self.conn.execute(
+                "DELETE FROM payouts WHERE rule_id = ? AND status = 'expected'",
+                (rule_id,),
+            )
+
+    # --- правила выплат ---
+
+    _RULE_SELECT = """
+    SELECT r.id, r.asset_id, r.kind, r.rate, r.period, r.anchor, r.currency,
+           r.note, r.active, a.name AS asset_name
+    FROM payout_rules r JOIN assets a ON a.id = r.asset_id
+    """
+
+    @staticmethod
+    def _read_rule(row: sqlite3.Row) -> PayoutRule:
+        return PayoutRule(
+            id=row["id"],
+            asset_id=row["asset_id"],
+            kind=row["kind"],
+            rate=float(row["rate"]),
+            period=row["period"],
+            anchor=date.fromisoformat(row["anchor"]),
+            currency=row["currency"],
+            note=row["note"],
+            active=bool(row["active"]),
+            asset_name=row["asset_name"],
+        )
+
+    def list_payout_rules(self, asset_id: int | None = None) -> list[PayoutRule]:
+        sql = self._RULE_SELECT
+        params: tuple = ()
+        if asset_id is not None:
+            sql += " WHERE r.asset_id = ?"
+            params = (asset_id,)
+        sql += " ORDER BY r.anchor, r.id"
+        return [self._read_rule(r) for r in self._rows(sql, params)]
+
+    def get_payout_rule(self, rule_id: int) -> PayoutRule | None:
+        row = self.conn.execute(
+            self._RULE_SELECT + " WHERE r.id = ?", (rule_id,)
+        ).fetchone()
+        return self._read_rule(row) if row else None
+
+    def add_payout_rule(
+        self, asset_id: int, kind: str, rate: float, period: str, anchor: date,
+        currency: str = "RUB", note: str = "", active: bool = True,
+    ) -> int:
+        with self.conn:
+            cur = self.conn.execute(
+                "INSERT INTO payout_rules (asset_id, kind, rate, period, anchor, "
+                "currency, note, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    asset_id, kind, rate, period, anchor.isoformat(), currency,
+                    note.strip(), 1 if active else 0,
+                ),
+            )
+        return int(cur.lastrowid)
+
+    def delete_payout_rule(self, rule_id: int) -> None:
+        with self.conn:
+            self.conn.execute(
+                "DELETE FROM payouts WHERE rule_id = ?", (rule_id,)
+            )
+            self.conn.execute("DELETE FROM payout_rules WHERE id = ?", (rule_id,))
+
+    # --- настройки ---
+
+    def get_setting(self, key: str, default: str | None = None) -> str | None:
+        row = self.conn.execute(
+            "SELECT value FROM settings WHERE key = ?", (key,)
+        ).fetchone()
+        return row["value"] if row else default
+    def set_setting(self, key: str, value: str) -> None:
+        with self.conn:
+            self.conn.execute(
+                "INSERT INTO settings (key, value) VALUES (?, ?) "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                (key, str(value)),
+            )

@@ -9,7 +9,9 @@ from datetime import date
 from ..models import (
     EXPENSE,
     INCOME,
+    INVEST,
     KIND_LABELS,
+    PLAN_KINDS,
     ValidationError,
     format_amount,
 )
@@ -17,7 +19,12 @@ from .dialogs import CategoryDialog, PlanDialog
 from .widgets import TreeTable, make_card, row, run_dialog
 
 ALL_TYPES = "Все типы"
-TYPE_TO_KIND = {ALL_TYPES: None, "Доходы": INCOME, "Расходы": EXPENSE}
+TYPE_TO_KIND = {
+    ALL_TYPES: None,
+    "Доходы": INCOME,
+    "Расходы": EXPENSE,
+    "Инвестиции": INVEST,
+}
 STATUS_RANK = {"bad": 0, "neutral": 1, "good": 2}
 
 
@@ -150,7 +157,10 @@ class CategoriesTab(ttk.Frame):
             self.on_change()
 
     def _plan(self) -> None:
-        result = run_dialog(PlanDialog, self, categories=self.service.categories())
+        categories = [
+            c for c in self.service.categories() if c.kind in PLAN_KINDS
+        ]
+        result = run_dialog(PlanDialog, self, categories=categories)
         if result:
             category, plan = result
             try:

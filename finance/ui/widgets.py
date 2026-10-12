@@ -126,6 +126,7 @@ class TreeTable:
         self.tree.tag_configure("over", foreground=theme.DANGER)
         self.tree.tag_configure("income", foreground="#047857")
         self.tree.tag_configure("expense", foreground="#B91C1C")
+        self.tree.tag_configure("invest", foreground="#6D28D9")
         self.tree.tag_configure("alt", background=theme.ROW_ALT)
 
         ybar = ttk.Scrollbar(frame, orient="vertical", command=self.tree.yview)

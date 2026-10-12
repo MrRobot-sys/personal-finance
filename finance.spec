@@ -11,7 +11,12 @@ a = Analysis(
     pathex=["."],
     binaries=[],
     datas=[],
-    hiddenimports=["finance.importers", "finance.ui.app"],
+    hiddenimports=[
+        "finance.importers",
+        "finance.quotes",
+        "finance.ui.app",
+        "finance.ui.investments_tab",
+    ],
     hookspath=[],
     runtime_hooks=[],
     excludes=["tkinter.test"],
