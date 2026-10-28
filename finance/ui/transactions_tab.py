@@ -5,7 +5,6 @@ import os
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-from ..importers import ImportFormatError, read_operations
 from ..models import (
     EXPENSE,
     INCOME,
@@ -15,6 +14,7 @@ from ..models import (
     format_amount,
     format_date,
 )
+from ..services import ImportFormatError
 from .dialogs import TransactionDialog
 from .import_dialog import CategoryMapDialog, ImportDialog
 from .widgets import PlaceholderEntry, TreeTable, make_card, row, run_dialog
@@ -252,7 +252,7 @@ class TransactionsTab(ttk.Frame):
         if not path:
             return
         try:
-            operations = read_operations(path)
+            operations = self.service.parse_operations(path)
         except (ImportFormatError, OSError) as exc:
             messagebox.showerror("Импорт", str(exc), parent=self)
             return

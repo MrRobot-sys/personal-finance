@@ -4,7 +4,6 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
 
-from ..importers import ImportedOperation
 from ..models import (
     EXPENSE,
     INCOME,
@@ -13,6 +12,7 @@ from ..models import (
     format_amount,
     format_date,
 )
+from ..services import ImportedOperation
 from .widgets import FormDialog, ScrollableFrame, TreeTable, row
 
 CREATE = "create"
