@@ -20,8 +20,6 @@ PALETTE = (
     "#e53935", "#fb8c00", "#fdd835", "#43a047", "#1e88e5",
     "#8e24aa", "#00acc1", "#6d4c41", "#d81b60", "#7cb342",
 )
-INCOME_COLOR = "#16a34a"
-EXPENSE_COLOR = "#dc2626"
 MONTH_SHORT = ("янв", "фев", "мар", "апр", "май", "июн",
                "июл", "авг", "сен", "окт", "ноя", "дек")
 
@@ -114,13 +112,13 @@ class StatsTab(ttk.Frame):
 
         legend = ttk.Frame(bottom_card)
         legend.pack(fill="x", pady=(8, 0))
-        tk.Frame(legend, bg=INCOME_COLOR, width=12, height=12).pack(
+        tk.Frame(legend, bg=theme.SUCCESS, width=12, height=12).pack(
             side="left", padx=(2, 0)
         )
         ttk.Label(legend, text="Доходы", style="Muted.TLabel").pack(
             side="left", padx=(6, 18)
         )
-        tk.Frame(legend, bg=EXPENSE_COLOR, width=12, height=12).pack(
+        tk.Frame(legend, bg=theme.DANGER, width=12, height=12).pack(
             side="left", padx=(2, 0)
         )
         ttk.Label(legend, text="Расходы", style="Muted.TLabel").pack(
@@ -191,7 +189,7 @@ class StatsTab(ttk.Frame):
         for i, (name, kind, value) in enumerate(items):
             y = 6 + i * row_h
             if kind == INCOME:
-                color = INCOME_COLOR
+                color = theme.SUCCESS
             else:
                 color = PALETTE[expense_index % len(PALETTE)]
                 expense_index += 1
@@ -237,7 +235,7 @@ class StatsTab(ttk.Frame):
         for step in range(5):
             value = max_value * step / 4
             y = pad_top + plot_h - plot_h * step / 4
-            canvas.create_line(pad_left, y, width - pad_right, y, fill="#EDEFF4")
+            canvas.create_line(pad_left, y, width - pad_right, y, fill=theme.GRID)
             text = f"{value:,.0f}".replace(",", "\u00a0")
             canvas.create_text(pad_left - 8, y, text=text, anchor="e", fill=theme.MUTED)
 
@@ -247,8 +245,8 @@ class StatsTab(ttk.Frame):
             cx = pad_left + slot * i + slot / 2
             month = f"{MONTH_NAMES[s.month - 1]} {s.year}"
             for offset, value, color, caption in (
-                (-bar_w / 2 - 1, s.income, INCOME_COLOR, "Доходы"),
-                (bar_w / 2 + 1, s.expense, EXPENSE_COLOR, "Расходы"),
+                (-bar_w / 2 - 1, s.income, theme.SUCCESS, "Доходы"),
+                (bar_w / 2 + 1, s.expense, theme.DANGER, "Расходы"),
             ):
                 h = plot_h * value / max_value if max_value else 0
                 if h > 0:

@@ -81,7 +81,7 @@ class AssetDialog(FormDialog):
         self.ticker_entry = ttk.Entry(parent, textvariable=self.ticker_var, width=16)
         self.ticker_entry.grid(row=row, column=1, sticky="w", pady=4)
         self.ticker_hint = ttk.Label(
-            parent, text="напр. SBER, AAPL", foreground="gray"
+            parent, text="напр. SBER, AAPL", foreground=theme.HINT
         )
         self.ticker_hint.grid(row=row, column=2, sticky="w", padx=(8, 0))
         row += 1
@@ -131,7 +131,7 @@ class AssetDialog(FormDialog):
         row += 1
         self.details_hint = ttk.Label(
             parent, text="адрес, серийный номер, состояние",
-            foreground="gray",
+            foreground=theme.HINT,
         )
         self.details_hint.grid(row=row, column=1, columnspan=2, sticky="w", pady=(0, 4))
         row += 1
@@ -196,7 +196,7 @@ class AssetDialog(FormDialog):
             ttk.Label(
                 parent,
                 text="Пустое количество — актив без позиции (сделки добавите позже).",
-                foreground="gray",
+                foreground=theme.HINT,
             ).grid(row=row, column=0, columnspan=3, sticky="w", pady=(0, 4))
 
         parent.columnconfigure(1, weight=1)

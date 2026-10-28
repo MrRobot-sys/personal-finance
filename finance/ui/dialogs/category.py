@@ -13,7 +13,7 @@ from ...models import (
     ValidationError,
     parse_optional_amount,
 )
-from ..widgets import FormDialog
+from ..widgets import FormDialog, theme
 from .common import _amount_text
 
 
@@ -58,7 +58,7 @@ class CategoryDialog(FormDialog):
         ttk.Label(
             parent, text="Сколько обычно поступает/тратится в месяц.\nПусто — без плана. "
             "Для инвестиций план не задаётся.",
-            foreground="gray", justify="left",
+            foreground=theme.HINT, justify="left",
         ).grid(row=3, column=0, columnspan=3, sticky="w", pady=(0, 4))
         self._sync_plan()
 
@@ -110,7 +110,7 @@ class PlanDialog(FormDialog):
         self.amount_entry = ttk.Entry(parent, textvariable=self.plan_var, width=16)
         self.amount_entry.grid(row=1, column=1, columnspan=2, sticky="w", pady=4)
         ttk.Label(
-            parent, text="Пусто — убрать план для категории.", foreground="gray"
+            parent, text="Пусто — убрать план для категории.", foreground=theme.HINT
         ).grid(row=2, column=0, columnspan=3, sticky="w", pady=(0, 4))
 
         parent.columnconfigure(1, weight=1)

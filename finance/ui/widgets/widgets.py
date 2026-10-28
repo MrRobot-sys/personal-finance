@@ -87,12 +87,12 @@ class PlaceholderEntry(ttk.Entry):
         self._placeholder_on = True
         self.delete(0, tk.END)
         self.insert(0, self.placeholder)
-        self.configure(foreground="gray")
+        self.configure(foreground=theme.HINT)
 
     def _on_focus_in(self, _event) -> None:
         if self._placeholder_on:
             self.delete(0, tk.END)
-            self.configure(foreground="black")
+            self.configure(foreground=theme.TEXT)
             self._placeholder_on = False
 
     def _on_focus_out(self, _event) -> None:
@@ -124,9 +124,9 @@ class TreeTable:
             frame, columns=keys, show="headings", height=height, selectmode="browse"
         )
         self.tree.tag_configure("over", foreground=theme.DANGER)
-        self.tree.tag_configure("income", foreground="#047857")
-        self.tree.tag_configure("expense", foreground="#B91C1C")
-        self.tree.tag_configure("invest", foreground="#6D28D9")
+        self.tree.tag_configure("income", foreground=theme.INCOME_FG)
+        self.tree.tag_configure("expense", foreground=theme.EXPENSE_FG)
+        self.tree.tag_configure("invest", foreground=theme.INVEST)
         self.tree.tag_configure("alt", background=theme.ROW_ALT)
 
         ybar = ttk.Scrollbar(frame, orient="vertical", command=self.tree.yview)

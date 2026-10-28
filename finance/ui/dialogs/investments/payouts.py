@@ -19,7 +19,7 @@ from ....models import (
     parse_date,
     parse_optional_number,
 )
-from ...widgets import FormDialog
+from ...widgets import FormDialog, theme
 from ..common import _amount_text, _asset_choices
 
 
@@ -93,7 +93,7 @@ class PayoutDialog(FormDialog):
             row=3, column=1, sticky="w", pady=4
         )
         ttk.Label(
-            parent, text="напр. дивиденд/купон на акцию", foreground="gray"
+            parent, text="напр. дивиденд/купон на акцию", foreground=theme.HINT
         ).grid(row=3, column=2, sticky="w", padx=(8, 0))
 
         ttk.Label(parent, text="Сумма:").grid(row=4, column=0, sticky="w", pady=4)
@@ -103,7 +103,7 @@ class PayoutDialog(FormDialog):
         ttk.Label(
             parent,
             text="ожидаемая (если нет ставки) или фактически полученная",
-            foreground="gray",
+            foreground=theme.HINT,
         ).grid(row=4, column=2, sticky="w", padx=(8, 0))
 
         ttk.Label(parent, text="Статус:").grid(row=5, column=0, sticky="w", pady=4)

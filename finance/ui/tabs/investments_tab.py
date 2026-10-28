@@ -54,17 +54,20 @@ SCOPE_CHOICES = (
     (SCOPE_LABELS[SCOPE_SECURITIES], SCOPE_SECURITIES),
     (SCOPE_LABELS[SCOPE_PROPERTY], SCOPE_PROPERTY),
 )
-GRAPH_ACCENT = theme.ACCENT
 WEEKDAYS = ("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс")
 MONTH_NAMES_SHORT = (
     "январь", "февраль", "март", "апрель", "май", "июнь",
     "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь",
 )
-PAYOUT_COLORS = {
-    "dividend": theme.SUCCESS,
-    "coupon": theme.ACCENT,
-    "other": theme.MUTED,
+PAYOUT_COLOR_ROLES = {
+    "dividend": "SUCCESS",
+    "coupon": "ACCENT",
 }
+
+
+def _payout_color(kind: str) -> str:
+    """Цвет маркера выплаты по её виду (роль активной палитры)."""
+    return theme.palette()[PAYOUT_COLOR_ROLES.get(kind, "MUTED")]
 
 
 def _short_money(value: float) -> str:
@@ -431,7 +434,7 @@ class PortfolioView(ttk.Frame):
         for step in range(5):
             value = min_v + (max_v - min_v) * step / 4
             y = pad_top + plot_h - plot_h * step / 4
-            canvas.create_line(pad_left, y, width - pad_right, y, fill="#EDEFF4")
+            canvas.create_line(pad_left, y, width - pad_right, y, fill=theme.GRID)
             canvas.create_text(
                 pad_left - 8, y, text=_short_money(value), anchor="e", fill=theme.MUTED
             )
@@ -446,11 +449,11 @@ class PortfolioView(ttk.Frame):
         flat: list[float] = []
         for index, (_day, value) in enumerate(points):
             flat.extend(coords(index, value))
-        canvas.create_line(*flat, fill=GRAPH_ACCENT, width=2)
+        canvas.create_line(*flat, fill=theme.ACCENT, width=2)
 
         for index, (day, value) in enumerate(points):
             x, y = coords(index, value)
-            item = canvas.create_oval(x - 3, y - 3, x + 3, y + 3, fill=GRAPH_ACCENT,
+            item = canvas.create_oval(x - 3, y - 3, x + 3, y + 3, fill=theme.ACCENT,
                                       outline="")
             self._graph_tips[item] = f"{format_date(day)}: {format_amount(value)}"
 
@@ -823,7 +826,7 @@ class PayoutCalendarView(ttk.Frame):
                 selected = self._selected_day == picked
                 is_today = picked == today
                 if selected:
-                    cell.configure(highlightbackground="#6D28D9", highlightthickness=2)
+                    cell.configure(highlightbackground=theme.INVEST, highlightthickness=2)
                 elif is_today:
                     cell.configure(highlightbackground=theme.ACCENT, highlightthickness=2)
 
@@ -845,7 +848,7 @@ class PayoutCalendarView(ttk.Frame):
                     dots.pack(anchor="w", padx=4)
                     for entry in day_entries[:5]:
                         tk.Frame(
-                            dots, bg=PAYOUT_COLORS.get(entry.kind, theme.MUTED),
+                            dots, bg=_payout_color(entry.kind),
                             width=6, height=6,
                         ).pack(side="left", padx=1)
                     due = [e for e in day_entries if e.is_due]

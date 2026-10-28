@@ -16,7 +16,7 @@ from ...models import (
     format_amount,
 )
 from ..dialogs import CategoryDialog, PlanDialog
-from ..widgets import TreeTable, make_card, row, run_dialog
+from ..widgets import TreeTable, make_card, row, run_dialog, theme
 
 ALL_TYPES = "Все типы"
 TYPE_TO_KIND = {
@@ -74,8 +74,8 @@ class CategoriesTab(ttk.Frame):
             on_double_click=self._edit,
         )
         self.table.frame.pack(fill="both", expand=True, pady=(12, 0))
-        self.table.tree.tag_configure("good", foreground="#047857")
-        self.table.tree.tag_configure("bad", foreground="#B91C1C")
+        self.table.tree.tag_configure("good", foreground=theme.INCOME_FG)
+        self.table.tree.tag_configure("bad", foreground=theme.EXPENSE_FG)
 
         self.hint_var = tk.StringVar(value="")
         ttk.Label(card, textvariable=self.hint_var, style="Muted.TLabel").pack(

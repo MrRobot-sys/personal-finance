@@ -13,7 +13,7 @@ from .dialogs import SettingsDialog
 from .tabs.investments_tab import InvestmentsTab
 from .tabs.stats_tab import StatsTab
 from .tabs.transactions_tab import TransactionsTab
-from .widgets import add_divider, run_dialog
+from .widgets import add_divider
 
 
 class App(tk.Tk):
@@ -24,6 +24,7 @@ class App(tk.Tk):
         self.geometry("1100x720")
         self.minsize(940, 640)
 
+        theme.load_theme(self.service.repo)
         theme.apply_theme(self)
         self._build_header()
         self._build_menu()
@@ -56,7 +57,7 @@ class App(tk.Tk):
         add_divider(self)
 
     def _chip(self, parent, caption: str, variable: tk.StringVar, kind: str) -> tk.Frame:
-        bg, fg = theme.CHIP[kind]
+        bg, fg = theme.chip(kind)
         box = tk.Frame(parent, bg=bg)
         tk.Label(
             box, text=caption, bg=bg, fg=theme.MUTED,
@@ -120,12 +121,24 @@ class App(tk.Tk):
         self.invest_var.set(format_amount(summary.invested))
 
     def _open_settings(self) -> None:
-        result = run_dialog(
-            SettingsDialog, self, settings=self.service.auto_settings()
+        # Диалог возвращает и настройки автообновления, и выбранную тему,
+        # поэтому экземпляр создаётся явно, а не через run_dialog.
+        dialog = SettingsDialog(
+            self,
+            settings=self.service.auto_settings(),
+            theme_name=theme.current_theme(),
         )
-        if result is None:
+        self.wait_window(dialog)
+        if dialog.result is None:
             return
-        self.service.save_auto_settings(result)
+        self.service.save_auto_settings(dialog.result)
+        if dialog.theme_name != theme.current_theme():
+            theme.save_theme(self.service.repo, dialog.theme_name)
+            messagebox.showinfo(
+                "Тема",
+                "Тема изменится после перезапуска приложения.",
+                parent=self,
+            )
         self.investments_tab.reschedule_auto()
 
     def _about(self) -> None:

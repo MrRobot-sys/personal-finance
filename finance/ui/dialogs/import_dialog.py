@@ -13,7 +13,7 @@ from ...models import (
     format_date,
 )
 from ...services import ImportedOperation
-from ..widgets import FormDialog, ScrollableFrame, TreeTable, row
+from ..widgets import FormDialog, ScrollableFrame, TreeTable, row, theme
 
 CREATE = "create"
 EXISTING = "existing"
@@ -76,7 +76,7 @@ class ImportDialog(FormDialog):
             height=18,
         )
         self.table.frame.pack(fill="both", expand=True)
-        self.table.tree.tag_configure("muted", foreground="#9CA3AF")
+        self.table.tree.tag_configure("muted", foreground=theme.FAINT)
 
         self.status_var = tk.StringVar(value="")
         ttk.Label(parent, textvariable=self.status_var, style="Value.TLabel").grid(
@@ -228,7 +228,7 @@ class CategoryMapDialog(FormDialog):
             ttk.Label(
                 holder,
                 text=f"«{name}» · {KIND_LABELS[kind]}",
-                foreground="#111827",
+                foreground=theme.TEXT,
             ).pack(side="left", padx=(2, 10))
             options = [
                 (f"Создать «{name}»", CREATE, None),

@@ -11,14 +11,24 @@ from ...services import (
     MIN_PRICE_MINUTES,
     AutoRefreshSettings,
 )
-from ..widgets import FormDialog
+from ..widgets import FormDialog, theme
+
+THEME_LABELS = {
+    theme.LIGHT: "Светлая",
+    theme.DARK: "Тёмная",
+}
 
 
 class SettingsDialog(FormDialog):
-    """Настройки автообновления цен и автопоиска выплат."""
+    """Настройки автообновления цен, автопоиска выплат и темы оформления."""
 
-    def __init__(self, parent, settings: AutoRefreshSettings):
+    def __init__(
+        self, parent, settings: AutoRefreshSettings, theme_name: str = theme.DEFAULT
+    ):
         self._settings = settings
+        self._theme_name = theme_name
+        #: Тема, выбранная в диалоге; читается вызывающей стороной после закрытия.
+        self.theme_name = theme_name
         super().__init__(parent, "Настройки", confirm_text="Сохранить")
 
     def build_body(self, parent) -> None:
@@ -60,6 +70,22 @@ class SettingsDialog(FormDialog):
             text="При отсутствии сети обновление просто пропускается.",
             style="Muted.TLabel",
         ).grid(row=4, column=0, columnspan=3, sticky="w", pady=(12, 0))
+
+        ttk.Label(
+            parent, text="Тема оформления", style="CardTitle.TLabel"
+        ).grid(row=5, column=0, columnspan=3, sticky="w", pady=(16, 4))
+        self.theme_var = tk.StringVar(value=self._theme_name)
+        theme_box = ttk.Frame(parent)
+        theme_box.grid(row=6, column=0, columnspan=3, sticky="w")
+        for name, title in THEME_LABELS.items():
+            ttk.Radiobutton(
+                theme_box, text=title, value=name, variable=self.theme_var
+            ).pack(side="left", padx=(0, 16))
+        ttk.Label(
+            parent,
+            text="Применится после перезапуска приложения.",
+            style="Muted.TLabel",
+        ).grid(row=7, column=0, columnspan=3, sticky="w", pady=(2, 0))
         parent.columnconfigure(1, weight=1)
 
     def on_ok(self) -> None:
@@ -81,4 +107,5 @@ class SettingsDialog(FormDialog):
             payout_enabled=bool(self.payout_enabled_var.get()),
             payout_hours=hours,
         )
+        self.theme_name = self.theme_var.get()
         self.destroy()
