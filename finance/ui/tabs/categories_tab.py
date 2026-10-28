@@ -6,7 +6,7 @@ from tkinter import messagebox, ttk
 
 from datetime import date
 
-from ..models import (
+from ...models import (
     EXPENSE,
     INCOME,
     INVEST,
@@ -15,8 +15,8 @@ from ..models import (
     ValidationError,
     format_amount,
 )
-from .dialogs import CategoryDialog, PlanDialog
-from .widgets import TreeTable, make_card, row, run_dialog
+from ..dialogs import CategoryDialog, PlanDialog
+from ..widgets import TreeTable, make_card, row, run_dialog
 
 ALL_TYPES = "Все типы"
 TYPE_TO_KIND = {

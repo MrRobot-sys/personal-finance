@@ -7,12 +7,12 @@ from tkinter import messagebox, ttk
 
 from ..models import MONTH_NAMES, format_amount
 from ..services import FinanceService
-from . import theme
-from .categories_tab import CategoriesTab
+from .widgets import theme
+from .tabs.categories_tab import CategoriesTab
 from .dialogs import SettingsDialog
-from .investments_tab import InvestmentsTab
-from .stats_tab import StatsTab
-from .transactions_tab import TransactionsTab
+from .tabs.investments_tab import InvestmentsTab
+from .tabs.stats_tab import StatsTab
+from .tabs.transactions_tab import TransactionsTab
 from .widgets import add_divider, run_dialog
 
 

@@ -16,7 +16,7 @@ import tkinter as tk
 from datetime import date, datetime
 from tkinter import messagebox, ttk
 
-from ..models import (
+from ...models import (
     BUY,
     MARKET_LABELS,
     MARKET_MANUAL,
@@ -37,9 +37,9 @@ from ..models import (
     format_date,
     format_quantity,
 )
-from . import theme
-from ..services import PAYOUTS_SYNCED_KEY, PRICES_UPDATED_KEY
-from .dialogs import (
+from ..widgets import theme
+from ...services import PAYOUTS_SYNCED_KEY, PRICES_UPDATED_KEY
+from ..dialogs import (
     AssetDialog,
     ManualPriceDialog,
     PayoutDialog,
@@ -47,7 +47,7 @@ from .dialogs import (
     ReceivePayoutsDialog,
     TradeDialog,
 )
-from .widgets import CanvasTooltip, TreeTable, make_card, row, run_dialog
+from ..widgets import CanvasTooltip, TreeTable, make_card, row, run_dialog
 
 SCOPE_CHOICES = (
     (SCOPE_LABELS[None], None),

@@ -5,7 +5,7 @@ import tkinter as tk
 from datetime import date
 from tkinter import ttk
 
-from ..models import (
+from ...models import (
     EXPENSE,
     INCOME,
     INVEST,
@@ -18,7 +18,7 @@ from ..models import (
     parse_amount,
     parse_date,
 )
-from .widgets import FormDialog
+from ..widgets import FormDialog
 
 
 class TransactionDialog(FormDialog):
@@ -110,7 +110,7 @@ class TransactionDialog(FormDialog):
         amount_text = self.amount_var.get()
         date_text = self.date_var.get()
         try:
-            from ..models import parse_amount, parse_date
+            from ...models import parse_amount, parse_date
 
             amount = parse_amount(amount_text)
             txn_date = parse_date(date_text)

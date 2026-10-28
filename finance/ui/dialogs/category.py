@@ -4,7 +4,7 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
 
-from ..models import (
+from ...models import (
     EXPENSE,
     INCOME,
     INVEST,
@@ -13,8 +13,8 @@ from ..models import (
     ValidationError,
     parse_optional_amount,
 )
-from .widgets import FormDialog
-from .dialogs_common import _amount_text
+from ..widgets import FormDialog
+from .common import _amount_text
 
 
 class CategoryDialog(FormDialog):

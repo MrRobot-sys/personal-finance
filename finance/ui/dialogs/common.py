@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import tkinter as tk
 
-from ..models import format_amount
+from ...models import format_amount
 
 
 # Кэш результатов поиска бумаг на время работы окна: (market, query) -> matches.

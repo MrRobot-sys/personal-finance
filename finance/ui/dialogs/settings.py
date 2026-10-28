@@ -4,14 +4,14 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
 
-from ..services import (
+from ...services import (
     DEFAULT_PAYOUT_HOURS,
     DEFAULT_PRICE_MINUTES,
     MIN_PAYOUT_HOURS,
     MIN_PRICE_MINUTES,
     AutoRefreshSettings,
 )
-from .widgets import FormDialog
+from ..widgets import FormDialog
 
 
 class SettingsDialog(FormDialog):

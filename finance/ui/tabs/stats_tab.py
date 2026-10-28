@@ -5,7 +5,7 @@ import tkinter as tk
 from datetime import date
 from tkinter import ttk
 
-from ..models import (
+from ...models import (
     INCOME,
     KIND_LABELS,
     MONTH_NAMES,
@@ -13,8 +13,8 @@ from ..models import (
     format_amount,
     previous_months,
 )
-from . import theme
-from .widgets import CanvasTooltip, TreeTable, make_card, row
+from ..widgets import theme
+from ..widgets import CanvasTooltip, TreeTable, make_card, row
 
 PALETTE = (
     "#e53935", "#fb8c00", "#fdd835", "#43a047", "#1e88e5",

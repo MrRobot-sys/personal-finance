@@ -5,7 +5,7 @@ import os
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-from ..models import (
+from ...models import (
     EXPENSE,
     INCOME,
     INVEST,
@@ -14,10 +14,10 @@ from ..models import (
     format_amount,
     format_date,
 )
-from ..services import ImportFormatError
-from .dialogs import TransactionDialog
-from .import_dialog import CategoryMapDialog, ImportDialog
-from .widgets import PlaceholderEntry, TreeTable, make_card, row, run_dialog
+from ...services import ImportFormatError
+from ..dialogs import TransactionDialog
+from ..dialogs import CategoryMapDialog, ImportDialog
+from ..widgets import PlaceholderEntry, TreeTable, make_card, row, run_dialog
 
 ALL_TYPES = "Все типы"
 ALL_CATEGORIES = "Все категории"
@@ -119,7 +119,7 @@ class TransactionsTab(ttk.Frame):
         return None
 
     def _filters(self) -> dict:
-        from ..models import parse_date
+        from ...models import parse_date
 
         date_from = date_to = None
         raw_from, raw_to = self.date_from.get(), self.date_to.get()
