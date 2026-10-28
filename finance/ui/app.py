@@ -84,6 +84,9 @@ class App(tk.Tk):
         menubar.add_cascade(label="Справка", menu=help_menu)
         self.config(menu=menubar)
         self.bind("<Control-r>", lambda _e: self.refresh_all())
+        self.bind("<Control-n>", self._new_transaction)
+        self.bind("<Control-i>", self._import_operations)
+        self.bind("<F5>", self._refresh_active_tab)
 
     def _build_body(self) -> None:
         self.notebook = ttk.Notebook(self)
@@ -109,6 +112,13 @@ class App(tk.Tk):
         self.notebook.add(self.stats_tab, text="Статистика")
         self.notebook.add(self.investments_tab, text="Инвестиции")
 
+        self._tab_list: tuple = (
+            self.transactions_tab,
+            self.categories_tab,
+            self.stats_tab,
+            self.investments_tab,
+        )
+
     def refresh_all(self) -> None:
         self.transactions_tab.refresh()
         self.categories_tab.refresh()
@@ -123,6 +133,49 @@ class App(tk.Tk):
         self.expense_var.set(format_amount(summary.expense))
         self.balance_var.set(format_amount(summary.balance))
         self.invest_var.set(format_amount(summary.invested))
+
+    def _new_transaction(self, _event=None) -> None:
+        """Ctrl+N — новая транзакция: тот же путь, что кнопка «Добавить»."""
+        if self._modal_dialog_open():
+            return
+        self.transactions_tab.add_transaction()
+
+    def _import_operations(self, _event=None) -> None:
+        """Ctrl+I — импорт выписок: тот же путь, что кнопка «Импорт…»."""
+        if self._modal_dialog_open():
+            return
+        self.transactions_tab.import_transactions()
+
+    def _refresh_active_tab(self, _event=None) -> None:
+        """F5 — обновить данные активного таба."""
+        tab = self._active_tab()
+        if tab is not None and hasattr(tab, "refresh"):
+            tab.refresh()
+        else:
+            self.refresh_all()
+
+    def _active_tab(self):
+        """Вкладка, выбранная в текущий момент."""
+        selected = self.notebook.select()
+        if not selected:
+            return None
+        selected_path = str(selected)
+        for tab in self._tab_list:
+            if str(tab) == selected_path:
+                return tab
+        return None
+
+    def _modal_dialog_open(self) -> bool:
+        """Наличие открытого модального диалога поверх главного окна."""
+        return self._has_modal(self)
+
+    def _has_modal(self, widget) -> bool:
+        for child in widget.winfo_children():
+            if isinstance(child, tk.Toplevel) and child.winfo_ismapped():
+                return True
+            if self._has_modal(child):
+                return True
+        return False
 
     def _open_settings(self) -> None:
         # Диалог возвращает и настройки автообновления, и выбранную тему,

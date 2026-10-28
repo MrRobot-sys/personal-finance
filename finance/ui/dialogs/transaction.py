@@ -18,7 +18,12 @@ from ...models import (
     parse_amount,
     parse_date,
 )
+from .common import _validation_text
 from ..widgets import FormDialog
+
+# Выпадающий список категорий теряет смысл при большом числе вариантов (> 20):
+# ниже него достаточно выбора из списка, выше — добавляется лёгкий поиск.
+CATEGORY_SEARCH_THRESHOLD = 20
 
 
 class TransactionDialog(FormDialog):
@@ -32,6 +37,9 @@ class TransactionDialog(FormDialog):
         self._categories = categories
         self._transaction = transaction
         self._default_kind = transaction.kind if transaction else default_kind
+        self._search_var = tk.StringVar()
+        self._category_search: ttk.Entry | None = None
+        self._kind_radio: ttk.Radiobutton | None = None
         title = "Редактировать операцию" if transaction else "Новая операция"
         super().__init__(parent, title, confirm_text="Сохранить")
 
@@ -46,13 +54,15 @@ class TransactionDialog(FormDialog):
         self.date_var = tk.StringVar(value=format_date(tr.txn_date) if tr else format_date(date.today()))
         self.note_var = tk.StringVar(value=tr.note if tr else "")
 
-        ttk.Label(parent, text="Тип:").grid(row=0, column=0, sticky="w", pady=4)
+        row = 0
+        ttk.Label(parent, text="Тип:").grid(row=row, column=0, sticky="w", pady=4)
         kinds = ttk.Frame(parent)
-        kinds.grid(row=0, column=1, columnspan=2, sticky="w", pady=4)
-        ttk.Radiobutton(
+        kinds.grid(row=row, column=1, columnspan=2, sticky="w", pady=4)
+        self._kind_radio = ttk.Radiobutton(
             kinds, text=KIND_LABELS[EXPENSE], value=EXPENSE, variable=self.kind_var,
             command=self._sync_categories,
-        ).pack(side="left")
+        )
+        self._kind_radio.pack(side="left")
         ttk.Radiobutton(
             kinds, text=KIND_LABELS[INCOME], value=INCOME, variable=self.kind_var,
             command=self._sync_categories,
@@ -61,41 +71,103 @@ class TransactionDialog(FormDialog):
             kinds, text=KIND_LABELS[INVEST], value=INVEST, variable=self.kind_var,
             command=self._sync_categories,
         ).pack(side="left", padx=(12, 0))
+        row += 1
 
-        ttk.Label(parent, text="Категория:").grid(row=1, column=0, sticky="w", pady=4)
+        ttk.Label(parent, text="Категория:").grid(row=row, column=0, sticky="w", pady=4)
         self.category_combo = ttk.Combobox(
             parent, textvariable=self.category_var, state="readonly", width=31
         )
-        self.category_combo.grid(row=1, column=1, columnspan=2, sticky="ew", pady=4)
+        if self._category_search_needed():
+            self._category_search = ttk.Entry(
+                parent, textvariable=self._search_var, width=24
+            )
+            self._category_search.grid(row=row, column=1, sticky="w", pady=4)
+            self.category_combo.grid(row=row, column=2, columnspan=1, sticky="ew", pady=4)
+            parent.columnconfigure(2, weight=1)
+            self._category_search.bind(
+                "<KeyRelease>", lambda _e: self._apply_category_filter()
+            )
+            self._category_search.bind(
+                "<Return>", lambda _e: self._choose_category()
+            )
+        else:
+            self.category_combo.grid(row=row, column=1, columnspan=2, sticky="ew", pady=4)
+        parent.columnconfigure(1, weight=1)
+        row += 1
 
-        ttk.Label(parent, text="Сумма:").grid(row=2, column=0, sticky="w", pady=4)
+        ttk.Label(parent, text="Сумма:").grid(row=row, column=0, sticky="w", pady=4)
         self.amount_entry = ttk.Entry(parent, textvariable=self.amount_var, width=16)
-        self.amount_entry.grid(row=2, column=1, columnspan=2, sticky="w", pady=4)
+        self.amount_entry.grid(row=row, column=1, columnspan=2, sticky="w", pady=4)
+        row += 1
 
-        ttk.Label(parent, text="Дата:").grid(row=3, column=0, sticky="w", pady=4)
+        ttk.Label(parent, text="Дата:").grid(row=row, column=0, sticky="w", pady=4)
         date_frame = ttk.Frame(parent)
-        date_frame.grid(row=3, column=1, columnspan=2, sticky="w", pady=4)
+        date_frame.grid(row=row, column=1, columnspan=2, sticky="w", pady=4)
         ttk.Entry(date_frame, textvariable=self.date_var, width=14).pack(side="left")
         ttk.Button(
             date_frame, text="Сегодня",
             command=lambda: self.date_var.set(format_date(date.today())),
         ).pack(side="left", padx=(8, 0))
+        row += 1
 
-        ttk.Label(parent, text="Заметка:").grid(row=4, column=0, sticky="w", pady=4)
+        ttk.Label(parent, text="Заметка:").grid(row=row, column=0, sticky="w", pady=4)
         ttk.Entry(parent, textvariable=self.note_var, width=33).grid(
-            row=4, column=1, columnspan=2, sticky="ew", pady=4
+            row=row, column=1, columnspan=2, sticky="ew", pady=4
         )
+        row += 1
 
         parent.columnconfigure(1, weight=1)
         self._sync_categories()
 
+    def _category_search_needed(self) -> bool:
+        """Есть ли смысл добавлять поле-поиск: при небольшом списке достаточно выбора."""
+        names = [c.name for c in self._categories if c.kind == self.kind_var.get()]
+        return len(names) > CATEGORY_SEARCH_THRESHOLD
+
+    def _apply_category_filter(self) -> None:
+        """Лёгкий поиск по категориям: фильтрация значений выпадающего списка."""
+        query = self._search_var.get().strip().lower()
+        names = [c.name for c in self._categories if c.kind == self.kind_var.get()]
+        if not query:
+            self.category_combo.configure(values=names)
+            current = self.category_var.get()
+            if current not in names:
+                self.category_var.set(names[0] if names else "")
+            return
+        filtered = [n for n in names if query in n.lower()]
+        self.category_combo.configure(values=filtered)
+        current = self.category_var.get()
+        if current not in filtered:
+            self.category_var.set(filtered[0] if filtered else "")
+
+    def _choose_category(self) -> str:
+        """Выбор первой подходящей категории по набранному запросу."""
+        names = [c.name for c in self._categories if c.kind == self.kind_var.get()]
+        query = self._search_var.get().strip().lower()
+        matches = [n for n in names if not query or query in n.lower()]
+        if not matches:
+            return ""
+        self.category_var.set(matches[0])
+        return "break"
+
     def _sync_categories(self) -> None:
         kind = self.kind_var.get()
+        self._search_var.set("")
         names = [c.name for c in self._categories if c.kind == kind]
         self.category_combo.configure(values=names)
+        if self._category_search_needed():
+            self._apply_category_filter()
+            return
         current = self.category_var.get()
         if current not in names:
             self.category_var.set(names[0] if names else "")
+
+    def _focus_first(self) -> None:
+        """Фокус на первое поле формы — тип операции (группа радио)."""
+        if self._kind_radio is not None:
+            self._kind_radio.focus_set()
+            return
+        super()._focus_first()
 
     def on_ok(self) -> None:
         kind = self.kind_var.get()
@@ -115,7 +187,7 @@ class TransactionDialog(FormDialog):
             amount = parse_amount(amount_text)
             txn_date = parse_date(date_text)
         except ValidationError as exc:
-            self.show_error(str(exc))
+            self.show_error(_validation_text(str(exc)))
             return
         self.result = {
             "category_id": match.id,

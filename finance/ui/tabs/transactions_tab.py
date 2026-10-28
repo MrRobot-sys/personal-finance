@@ -115,13 +115,13 @@ class TransactionsTab(ttk.Frame):
         bottom.grid(row=2, column=0, sticky="ew", pady=(theme.SPACING["large"], 0))
 
         ttk.Button(
-            bottom, text="Добавить", style="Accent.TButton", command=self._add
+            bottom, text="Добавить", style="Accent.TButton", command=self.add_transaction
         ).pack(side="left")
         ttk.Button(bottom, text="Изменить", command=self._edit).pack(
             side="left", padx=theme.SPACING["medium"]
         )
         ttk.Button(bottom, text="Удалить", command=self._delete).pack(side="left")
-        ttk.Button(bottom, text="Импорт…", command=self._import).pack(
+        ttk.Button(bottom, text="Импорт…", command=self.import_transactions).pack(
             side="left", padx=(theme.SPACING["large"], 0)
         )
 
@@ -211,7 +211,8 @@ class TransactionsTab(ttk.Frame):
         self.search_entry.delete(0, tk.END)
         self._apply()
 
-    def _add(self) -> None:
+    def add_transaction(self) -> None:
+        """Открыть диалог новой операции (кнопка «Добавить» и горячая клавиша Ctrl+N)."""
         kind = TYPE_TO_KIND.get(self.kind_combo.get()) or EXPENSE
         categories = self.service.categories()
         if not categories:
@@ -265,7 +266,8 @@ class TransactionsTab(ttk.Frame):
             self.service.remove_transaction(int(iid))
             self.on_change()
 
-    def _import(self) -> None:
+    def import_transactions(self) -> None:
+        """Открыть диалог импорта выписок (кнопка «Импорт…» и горячая клавиша Ctrl+I)."""
         path = filedialog.askopenfilename(
             title="Файл выписки банка (CSV, OFX, XLSX)",
             filetypes=[

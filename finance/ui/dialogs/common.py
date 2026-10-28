@@ -23,6 +23,19 @@ def _get_search_cache() -> dict[tuple[str, str], list]:
     return _SEARCH_CACHE
 
 
+# Пустые обязательные поля сервисного слоя сериализуются в человеко-понятные тексты.
+_EMPTY_VALIDATION_TEXTS: dict[str, str] = {
+    "Введите сумму": "Сумма не может быть пустой — укажите число, например 1500 или 1500,50",
+    "Введите дату": "Дата не может быть пустой — укажите дату в формате ДД.ММ.ГГГГ",
+}
+
+
+def _validation_text(raw: str) -> str:
+    """Человеко-понятный текст ошибки валидации (пустые поля — по словарю выше)."""
+    text = (raw or "").strip()
+    return _EMPTY_VALIDATION_TEXTS.get(text, text)
+
+
 def _amount_text(value: float | None) -> str:
     if value is None:
         return ""
