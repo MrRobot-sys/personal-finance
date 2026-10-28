@@ -1,11 +1,12 @@
-"""Базовые виджеты и тема оформления интерфейса.
+"""Базовые виджеты, диаграммы и тема оформления интерфейса.
 
-Реэкспортует публичный API модуля ``widgets`` и подмодуль ``theme``
-для обратной совместимости: ``from finance.ui.widgets import X``.
+Реэкспортует публичный API модулей ``widgets`` и ``charts``, подмодуль
+``theme`` для обратной совместимости: ``from finance.ui.widgets import X``.
 """
 from __future__ import annotations
 
-from . import theme
+from . import charts, theme
+from .charts import draw_donut, draw_dynamics, draw_plan_fact
 from .widgets import (
     CanvasTooltip,
     FormDialog,
@@ -25,6 +26,10 @@ __all__ = [
     "ScrollableFrame",
     "TreeTable",
     "add_divider",
+    "charts",
+    "draw_donut",
+    "draw_dynamics",
+    "draw_plan_fact",
     "make_card",
     "row",
     "run_dialog",

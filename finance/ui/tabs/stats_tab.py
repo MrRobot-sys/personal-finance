@@ -1,4 +1,4 @@
-"""Вкладка статистики: итоги месяца, диаграммы по категориям и за 12 месяцев."""
+"""Вкладка статистики: итоги месяца, структура, план и факт, динамика."""
 from __future__ import annotations
 
 import tkinter as tk
@@ -6,6 +6,7 @@ from datetime import date
 from tkinter import ttk
 
 from ...models import (
+    EXPENSE,
     INCOME,
     KIND_LABELS,
     MONTH_NAMES,
@@ -13,15 +14,7 @@ from ...models import (
     format_amount,
     previous_months,
 )
-from ..widgets import theme
-from ..widgets import CanvasTooltip, TreeTable, make_card, row
-
-PALETTE = (
-    "#e53935", "#fb8c00", "#fdd835", "#43a047", "#1e88e5",
-    "#8e24aa", "#00acc1", "#6d4c41", "#d81b60", "#7cb342",
-)
-MONTH_SHORT = ("янв", "фев", "мар", "апр", "май", "июн",
-               "июл", "авг", "сен", "окт", "ноя", "дек")
+from ..widgets import CanvasTooltip, TreeTable, charts, make_card, row, theme
 
 
 class StatsTab(ttk.Frame):
@@ -30,12 +23,18 @@ class StatsTab(ttk.Frame):
         self.service = service
         self.on_change = on_change
         self._breakdown: list[tuple[str, str, float]] = []
+        self._donut_slices: list[tuple[str, float, str]] = []
+        self._donut_caption = "Расходы"
+        self._plan_rows: list[tuple[str, float, float]] = []
         self._dynamics: list[MonthSummary] = []
-        self._breakdown_tips: dict[int, str] = {}
+        self._colors: dict[str, str] = {}
+        self._donut_tips: dict[int, str] = {}
+        self._plan_tips: dict[int, str] = {}
         self._dynamics_tips: dict[int, str] = {}
         self._selected: tuple[int, int] = self._current_month()
         self._build()
-        self.chart_tip = CanvasTooltip(self.chart, self._chart_tip_for)
+        self.chart_tip = CanvasTooltip(self.donut_canvas, self._donut_tip_for)
+        self.plan_tip = CanvasTooltip(self.plan_canvas, self._plan_tip_for)
         self.dyn_tip = CanvasTooltip(self.dynamics_canvas, self._dynamics_tip_for)
 
     @staticmethod
@@ -44,7 +43,8 @@ class StatsTab(ttk.Frame):
         return today.year, today.month
 
     def _build(self) -> None:
-        self.rowconfigure(1, weight=1)
+        self.rowconfigure(1, weight=1, minsize=200)
+        self.rowconfigure(2, weight=1, minsize=210)
         self.columnconfigure(0, weight=1)
 
         top = ttk.Frame(self)
@@ -100,32 +100,52 @@ class StatsTab(ttk.Frame):
         )
         self.table.frame.pack(fill="both", expand=True)
 
-        right_outer, right_card = make_card(
+        donut_outer, donut_card = make_card(
             middle,
-            title="Диаграмма по категориям",
+            title="Структура месяца",
             padding=theme.CARD_PADDING_COMPACT,
         )
-        right_outer.grid(
+        donut_outer.grid(
             row=0, column=1, sticky="nsew", padx=(theme.SPACING["small"], 0)
         )
-        self.chart = tk.Canvas(right_card, background=theme.CARD, highlightthickness=0)
-        self.chart.pack(fill="both", expand=True)
-        self.chart.bind("<Configure>", lambda _e: self._draw_breakdown())
-
-        bottom_outer, bottom_card = make_card(
-            self, title="Динамика за 12 месяцев", padding=theme.CARD_PADDING
+        self.donut_canvas = tk.Canvas(
+            donut_card, background=theme.CARD, highlightthickness=0
         )
-        bottom_outer.grid(
-            row=2, column=0, sticky="nsew", pady=(theme.SPACING["large"], 0)
+        self.donut_canvas.pack(fill="both", expand=True)
+        self.donut_canvas.bind("<Configure>", lambda _e: self._draw_donut())
+
+        bottom = ttk.Frame(self)
+        bottom.grid(row=2, column=0, sticky="nsew", pady=(theme.SPACING["large"], 0))
+        bottom.columnconfigure(0, weight=1)
+        bottom.columnconfigure(1, weight=1)
+        bottom.rowconfigure(0, weight=1)
+
+        plan_outer, plan_card = make_card(
+            bottom, title="План и факт (расходы)", padding=theme.CARD_PADDING_COMPACT
+        )
+        plan_outer.grid(
+            row=0, column=0, sticky="nsew", padx=(0, theme.SPACING["small"])
+        )
+        self.plan_canvas = tk.Canvas(
+            plan_card, background=theme.CARD, highlightthickness=0, height=150
+        )
+        self.plan_canvas.pack(fill="both", expand=True)
+        self.plan_canvas.bind("<Configure>", lambda _e: self._draw_plans())
+
+        dyn_outer, dyn_card = make_card(
+            bottom, title="Динамика за 12 месяцев", padding=theme.CARD_PADDING
+        )
+        dyn_outer.grid(
+            row=0, column=1, sticky="nsew", padx=(theme.SPACING["small"], 0)
         )
         self.dynamics_canvas = tk.Canvas(
-            bottom_card, background=theme.CARD, highlightthickness=0, height=170
+            dyn_card, background=theme.CARD, highlightthickness=0, height=150
         )
         self.dynamics_canvas.pack(fill="both", expand=True)
         self.dynamics_canvas.bind("<Configure>", lambda _e: self._draw_dynamics())
 
-        legend = ttk.Frame(bottom_card)
-        legend.pack(fill="x", pady=(theme.SPACING["large"], 0))
+        legend = ttk.Frame(dyn_card)
+        legend.pack(fill="x", pady=(theme.SPACING["small"], 0))
         tk.Frame(legend, bg=theme.SUCCESS, width=12, height=12).pack(
             side="left", padx=(theme.SPACING["small"], 0)
         )
@@ -136,6 +156,12 @@ class StatsTab(ttk.Frame):
             side="left", padx=(theme.SPACING["small"], 0)
         )
         ttk.Label(legend, text="Расходы", style="Muted.TLabel").pack(
+            side="left", padx=(theme.SPACING["medium"], theme.SPACING["large"])
+        )
+        tk.Frame(legend, bg=theme.ACCENT, width=16, height=2).pack(
+            side="left", padx=(theme.SPACING["small"], 0), pady=(5, 0)
+        )
+        ttk.Label(legend, text="Тренд расходов", style="Muted.TLabel").pack(
             side="left", padx=(theme.SPACING["medium"], 0)
         )
 
@@ -177,113 +203,74 @@ class StatsTab(ttk.Frame):
             )
         self.table.set_rows(rows)
 
+        self._colors = self._category_colors()
+        slices = [(n, v) for n, k, v in self._breakdown if k == EXPENSE]
+        self._donut_caption = "Расходы"
+        if not slices:
+            slices = [(n, v) for n, k, v in self._breakdown if k == INCOME]
+            self._donut_caption = "Доходы"
+        self._donut_slices = [
+            (name, value, self._color_for(name, index))
+            for index, (name, value) in enumerate(slices)
+        ]
+
+        self._plan_rows = sorted(
+            (
+                (plan.category.name, float(plan.limit or 0.0), float(plan.spent))
+                for plan in self.service.category_plans(year, month)
+                if plan.category.kind == EXPENSE and plan.has_limit
+            ),
+            key=lambda item: item[1],
+            reverse=True,
+        )
         self._dynamics = self.service.dynamics(year, month, 12)
-        self._draw_breakdown()
+        self._draw_donut()
+        self._draw_plans()
         self._draw_dynamics()
 
-    def _draw_breakdown(self) -> None:
-        canvas = self.chart
+    def _category_colors(self) -> dict[str, str]:
+        """Устойчивый цвет категории независимо от месяца и суммы."""
+        names = sorted(category.name for category in self.service.categories(EXPENSE))
+        names += sorted(category.name for category in self.service.categories(INCOME))
+        return {
+            name: charts.PALETTE[index % len(charts.PALETTE)]
+            for index, name in enumerate(names)
+        }
+
+    def _color_for(self, name: str, index: int) -> str:
+        return self._colors.get(name, charts.PALETTE[index % len(charts.PALETTE)])
+
+    def _month_note(self) -> str:
+        year, month = self._selected
+        return f"{MONTH_NAMES[month - 1].lower()} {year}"
+
+    def _draw_donut(self) -> None:
         self.chart_tip.hide()
-        canvas.delete("all")
-        self._breakdown_tips = {}
-        width = max(canvas.winfo_width(), 100)
-        height = max(canvas.winfo_height(), 100)
-        items = self._breakdown
-        if not items:
-            canvas.create_text(
-                width / 2, height / 2, text="Нет данных за месяц", fill=theme.MUTED
-            )
-            return
-
-        pad_left = min(150, max(90, width // 4))
-        pad_right = 115
-        row_h = max(20, min(34, (height - 12) // len(items)))
-        bar_max = max(40, width - pad_left - pad_right)
-        max_value = max(v for _n, _k, v in items) or 1
-
-        expense_index = 0
-        for i, (name, kind, value) in enumerate(items):
-            y = 6 + i * row_h
-            if kind == INCOME:
-                color = theme.SUCCESS
-            else:
-                color = PALETTE[expense_index % len(PALETTE)]
-                expense_index += 1
-            length = max(2, int(bar_max * value / max_value))
-            label = name if len(name) <= 16 else name[:15] + "…"
-            canvas.create_text(pad_left - 8, y + row_h / 2, text=label, anchor="e")
-            item = canvas.create_rectangle(
-                pad_left, y + 4, pad_left + length, y + row_h - 4,
-                fill=color, outline="",
-            )
-            self._breakdown_tips[item] = (
-                f"{KIND_LABELS[kind]}: {name} — {format_amount(value)}"
-            )
-            canvas.create_text(
-                pad_left + length + 8, y + row_h / 2,
-                text=format_amount(value), anchor="w",
-            )
-
-    def _chart_tip_for(self, event, canvas) -> str | None:
-        return _tip_at(canvas, self._breakdown_tips, event.x, event.y)
-
-    def _draw_dynamics(self) -> None:
-        canvas = self.dynamics_canvas
-        self.dyn_tip.hide()
-        canvas.delete("all")
-        self._dynamics_tips = {}
-        width = max(canvas.winfo_width(), 100)
-        height = max(canvas.winfo_height(), 100)
-        series = self._dynamics
-        if not series:
-            canvas.create_text(
-                width / 2, height / 2, text="Нет данных за период",
-                fill=theme.MUTED,
-            )
-            return
-
-        pad_top = 14
-        pad_bottom = 26
-        pad_left = 74
-        pad_right = 12
-        plot_w = width - pad_left - pad_right
-        plot_h = height - pad_top - pad_bottom
-        max_value = max(
-            [s.income for s in series] + [s.expense for s in series] + [1]
+        self._donut_tips = charts.draw_donut(
+            self.donut_canvas,
+            self._donut_slices,
+            caption=self._donut_caption,
+            note=self._month_note(),
+            empty_text=charts.EMPTY_MONTH,
         )
 
-        for step in range(5):
-            value = max_value * step / 4
-            y = pad_top + plot_h - plot_h * step / 4
-            canvas.create_line(pad_left, y, width - pad_right, y, fill=theme.GRID)
-            text = f"{value:,.0f}".replace(",", "\u00a0")
-            canvas.create_text(pad_left - 8, y, text=text, anchor="e", fill=theme.MUTED)
+    def _draw_plans(self) -> None:
+        self.plan_tip.hide()
+        self._plan_tips = charts.draw_plan_fact(
+            self.plan_canvas, self._plan_rows, empty_text=charts.EMPTY_PERIOD
+        )
 
-        slot = plot_w / len(series)
-        bar_w = max(4, min(18, slot / 2.6))
-        for i, s in enumerate(series):
-            cx = pad_left + slot * i + slot / 2
-            month = f"{MONTH_NAMES[s.month - 1]} {s.year}"
-            for offset, value, color, caption in (
-                (-bar_w / 2 - 1, s.income, theme.SUCCESS, "Доходы"),
-                (bar_w / 2 + 1, s.expense, theme.DANGER, "Расходы"),
-            ):
-                h = plot_h * value / max_value if max_value else 0
-                if h > 0:
-                    item = canvas.create_rectangle(
-                        cx + offset - bar_w / 2,
-                        pad_top + plot_h - h,
-                        cx + offset + bar_w / 2,
-                        pad_top + plot_h,
-                        fill=color, outline="",
-                    )
-                    self._dynamics_tips[item] = (
-                        f"{caption}, {month}: {format_amount(value)}"
-                    )
-            canvas.create_text(
-                cx, height - pad_bottom + 15,
-                text=MONTH_SHORT[s.month - 1], fill=theme.MUTED,
-            )
+    def _draw_dynamics(self) -> None:
+        self.dyn_tip.hide()
+        self._dynamics_tips = charts.draw_dynamics(
+            self.dynamics_canvas, self._dynamics, empty_text=charts.EMPTY_PERIOD
+        )
+
+    def _donut_tip_for(self, event, canvas) -> str | None:
+        return _tip_at(canvas, self._donut_tips, event.x, event.y)
+
+    def _plan_tip_for(self, event, canvas) -> str | None:
+        return _tip_at(canvas, self._plan_tips, event.x, event.y)
 
     def _dynamics_tip_for(self, event, canvas) -> str | None:
         return _tip_at(canvas, self._dynamics_tips, event.x, event.y)
