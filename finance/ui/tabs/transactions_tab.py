@@ -17,7 +17,7 @@ from ...models import (
 from ...services import ImportFormatError
 from ..dialogs import TransactionDialog
 from ..dialogs import CategoryMapDialog, ImportDialog
-from ..widgets import PlaceholderEntry, TreeTable, make_card, row, run_dialog
+from ..widgets import PlaceholderEntry, TreeTable, make_card, row, run_dialog, theme
 
 ALL_TYPES = "Все типы"
 ALL_CATEGORIES = "Все категории"
@@ -32,7 +32,7 @@ KIND_TO_TYPE = {INCOME: "Доходы", EXPENSE: "Расходы", INVEST: "Ин
 
 class TransactionsTab(ttk.Frame):
     def __init__(self, master, service, on_change):
-        super().__init__(master, padding=12)
+        super().__init__(master, padding=theme.SPACING["large"])
         self.service = service
         self.on_change = on_change
         self.rowconfigure(1, weight=1)
@@ -43,40 +43,59 @@ class TransactionsTab(ttk.Frame):
 
     def _build_filters(self) -> None:
         outer, bar = make_card(self, title="Фильтры")
-        outer.grid(row=0, column=0, sticky="ew", pady=(0, 12))
+        outer.grid(row=0, column=0, sticky="ew", pady=(0, theme.SPACING["large"]))
 
         ttk.Label(bar, text="Период с:").grid(row=0, column=0, sticky="w")
         self.date_from = PlaceholderEntry(bar, placeholder="ДД.ММ.ГГГГ", width=12)
-        self.date_from.grid(row=0, column=1, padx=(4, 12))
+        self.date_from.grid(
+            row=0, column=1, padx=(theme.SPACING["small"], theme.SPACING["large"])
+        )
 
         ttk.Label(bar, text="по:").grid(row=0, column=2, sticky="w")
         self.date_to = PlaceholderEntry(bar, placeholder="ДД.ММ.ГГГГ", width=12)
-        self.date_to.grid(row=0, column=3, padx=(4, 18))
+        self.date_to.grid(
+            row=0, column=3, padx=(theme.SPACING["small"], theme.SPACING["large"])
+        )
 
         ttk.Label(bar, text="Тип:").grid(row=0, column=4, sticky="w")
         self.kind_combo = ttk.Combobox(
             bar, values=list(TYPE_TO_KIND), state="readonly", width=11
         )
         self.kind_combo.set(ALL_TYPES)
-        self.kind_combo.grid(row=0, column=5, padx=(4, 18))
+        self.kind_combo.grid(
+            row=0, column=5, padx=(theme.SPACING["small"], theme.SPACING["large"])
+        )
         self.kind_combo.bind("<<ComboboxSelected>>", lambda _e: self._apply())
 
         ttk.Label(bar, text="Категория:").grid(row=0, column=6, sticky="w")
         self.category_combo = ttk.Combobox(bar, state="readonly", width=17)
-        self.category_combo.grid(row=0, column=7, padx=(4, 18))
+        self.category_combo.grid(
+            row=0, column=7, padx=(theme.SPACING["small"], theme.SPACING["large"])
+        )
         self.category_combo.bind("<<ComboboxSelected>>", lambda _e: self._apply())
 
         ttk.Label(bar, text="Поиск:").grid(row=0, column=8, sticky="w")
         self.search_entry = ttk.Entry(bar, width=16)
-        self.search_entry.grid(row=0, column=9, padx=(4, 12))
+        self.search_entry.grid(
+            row=0, column=9, padx=(theme.SPACING["small"], theme.SPACING["large"])
+        )
         self.search_entry.bind("<Return>", lambda _e: self._apply())
 
-        ttk.Button(bar, text="Применить", command=self._apply).grid(row=0, column=10, padx=2)
-        ttk.Button(bar, text="Сбросить", command=self._reset).grid(row=0, column=11, padx=(6, 0))
+        ttk.Button(
+            bar, text="Применить", command=self._apply
+        ).grid(row=0, column=10, padx=theme.SPACING["small"])
+        ttk.Button(
+            bar, text="Сбросить", command=self._reset
+        ).grid(row=0, column=11, padx=(theme.SPACING["small"], 0))
 
     def _build_table(self) -> None:
-        outer, content = make_card(self, padding=8)
+        outer, content = make_card(self, padding=theme.CARD_PADDING_COMPACT)
         outer.grid(row=1, column=0, sticky="nsew")
+        self.empty_var = tk.StringVar(value="")
+        self.empty_label = ttk.Label(
+            content, textvariable=self.empty_var, style="Muted.TLabel"
+        )
+        self.empty_label.pack(anchor="w", pady=theme.SPACING["large"])
         self.table = TreeTable(
             content,
             columns=[
@@ -93,15 +112,17 @@ class TransactionsTab(ttk.Frame):
 
     def _build_actions(self) -> None:
         bottom = ttk.Frame(self)
-        bottom.grid(row=2, column=0, sticky="ew", pady=(12, 0))
+        bottom.grid(row=2, column=0, sticky="ew", pady=(theme.SPACING["large"], 0))
 
         ttk.Button(
             bottom, text="Добавить", style="Accent.TButton", command=self._add
         ).pack(side="left")
-        ttk.Button(bottom, text="Изменить", command=self._edit).pack(side="left", padx=8)
+        ttk.Button(bottom, text="Изменить", command=self._edit).pack(
+            side="left", padx=theme.SPACING["medium"]
+        )
         ttk.Button(bottom, text="Удалить", command=self._delete).pack(side="left")
         ttk.Button(bottom, text="Импорт…", command=self._import).pack(
-            side="left", padx=(16, 0)
+            side="left", padx=(theme.SPACING["large"], 0)
         )
 
         self.totals_var = tk.StringVar(value="")
@@ -166,6 +187,12 @@ class TransactionsTab(ttk.Frame):
                 )
             )
         self.table.set_rows(rows)
+        if rows:
+            self.table.frame.pack(fill="both", expand=True)
+            self.empty_label.pack_forget()
+        else:
+            self.table.frame.pack_forget()
+            self.empty_label.pack(anchor="w", pady=theme.SPACING["large"])
         income, expense = self.service.filtered_totals(transactions)
         invested = sum(t.amount for t in transactions if t.kind == INVEST)
         text = (

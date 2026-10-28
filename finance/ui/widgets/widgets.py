@@ -11,15 +11,26 @@ SORT_ASC = "asc"
 SORT_DESC = "desc"
 
 
-def make_card(parent, title: str | None = None, padding: int = 14):
-    """Плитка с рамкой: возвращает (внешняя рамка, контейнер содержимого)."""
+def section_title(parent, text: str) -> ttk.Label:
+    """Заголовок секции карточки: единый стиль (CardTitle.TLabel) и отступ из темы."""
+    label = ttk.Label(parent, text=text, style="CardTitle.TLabel")
+    label.pack(anchor="w", pady=(0, theme.SPACING["large"]))
+    return label
+
+
+def make_card(parent, title: str | None = None, padding: int = theme.CARD_PADDING):
+    """Плитка с рамкой: возвращает (внешняя рамка, контейнер содержимого).
+
+    :param parent: родительский контейнер;
+    :param title: заголовок секции (если задан, оформляется через :func:`section_title`);
+    :param padding: внутренний отступ содержимого карточки (:data:`theme.CARD_PADDING`
+        или :data:`theme.CARD_PADDING_COMPACT` для карточек таблиц).
+    """
     outer = ttk.Frame(parent, style="Border.TFrame", padding=1)
     card = ttk.Frame(outer, style="TFrame", padding=padding)
     card.pack(fill="both", expand=True)
     if title:
-        ttk.Label(card, text=title, style="CardTitle.TLabel").pack(
-            anchor="w", pady=(0, 10)
-        )
+        section_title(card, title)
     content = ttk.Frame(card, style="TFrame")
     content.pack(fill="both", expand=True)
     return outer, content

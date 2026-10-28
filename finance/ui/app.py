@@ -87,7 +87,11 @@ class App(tk.Tk):
 
     def _build_body(self) -> None:
         self.notebook = ttk.Notebook(self)
-        self.notebook.pack(fill="both", expand=True, padx=14, pady=(12, 14))
+        self.notebook.pack(
+            fill="both", expand=True,
+            padx=theme.SPACING["large"],
+            pady=(theme.SPACING["large"], theme.SPACING["large"]),
+        )
 
         self.transactions_tab = TransactionsTab(
             self.notebook, self.service, self.refresh_all

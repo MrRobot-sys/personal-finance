@@ -26,7 +26,7 @@ MONTH_SHORT = ("янв", "фев", "мар", "апр", "май", "июн",
 
 class StatsTab(ttk.Frame):
     def __init__(self, master, service, on_change):
-        super().__init__(master, padding=12)
+        super().__init__(master, padding=theme.SPACING["large"])
         self.service = service
         self.on_change = on_change
         self._breakdown: list[tuple[str, str, float]] = []
@@ -50,7 +50,9 @@ class StatsTab(ttk.Frame):
         top = ttk.Frame(self)
         top.grid(row=0, column=0, sticky="ew")
 
-        month_outer, month_card = make_card(top, title="Месяц", padding=(14, 10))
+        month_outer, month_card = make_card(
+            top, title="Месяц", padding=theme.CARD_PADDING
+        )
         month_outer.pack(side="left", fill="y")
         self.months = previous_months(*self._current_month(), 24)
         labels = [f"{MONTH_NAMES[m - 1]} {y}" for y, m in self.months]
@@ -65,23 +67,27 @@ class StatsTab(ttk.Frame):
         self.expense_var = tk.StringVar(value=format_amount(0))
         self.balance_var = tk.StringVar(value=format_amount(0))
         self._stat(top, "Доходы", self.income_var, "StatIncome.TLabel").pack(
-            side="left", fill="both", expand=True, padx=(12, 0)
+            side="left", fill="both", expand=True, padx=(theme.SPACING["large"], 0)
         )
         self._stat(top, "Расходы", self.expense_var, "StatExpense.TLabel").pack(
-            side="left", fill="both", expand=True, padx=(12, 0)
+            side="left", fill="both", expand=True, padx=(theme.SPACING["large"], 0)
         )
         self._stat(top, "Баланс", self.balance_var, "StatBalance.TLabel").pack(
-            side="left", fill="both", expand=True, padx=(12, 0)
+            side="left", fill="both", expand=True, padx=(theme.SPACING["large"], 0)
         )
 
         middle = ttk.Frame(self)
-        middle.grid(row=1, column=0, sticky="nsew", pady=(12, 0))
+        middle.grid(row=1, column=0, sticky="nsew", pady=(theme.SPACING["large"], 0))
         middle.columnconfigure(0, weight=1)
         middle.columnconfigure(1, weight=1)
         middle.rowconfigure(0, weight=1)
 
-        left_outer, left_card = make_card(middle, title="По категориям", padding=8)
-        left_outer.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+        left_outer, left_card = make_card(
+            middle, title="По категориям", padding=theme.CARD_PADDING_COMPACT
+        )
+        left_outer.grid(
+            row=0, column=0, sticky="nsew", padx=(0, theme.SPACING["small"])
+        )
         self.table = TreeTable(
             left_card,
             columns=[
@@ -94,16 +100,24 @@ class StatsTab(ttk.Frame):
         )
         self.table.frame.pack(fill="both", expand=True)
 
-        right_outer, right_card = make_card(middle, title="Диаграмма по категориям", padding=8)
-        right_outer.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
+        right_outer, right_card = make_card(
+            middle,
+            title="Диаграмма по категориям",
+            padding=theme.CARD_PADDING_COMPACT,
+        )
+        right_outer.grid(
+            row=0, column=1, sticky="nsew", padx=(theme.SPACING["small"], 0)
+        )
         self.chart = tk.Canvas(right_card, background=theme.CARD, highlightthickness=0)
         self.chart.pack(fill="both", expand=True)
         self.chart.bind("<Configure>", lambda _e: self._draw_breakdown())
 
         bottom_outer, bottom_card = make_card(
-            self, title="Динамика за 12 месяцев", padding=(10, 8)
+            self, title="Динамика за 12 месяцев", padding=theme.CARD_PADDING
         )
-        bottom_outer.grid(row=2, column=0, sticky="nsew", pady=(12, 0))
+        bottom_outer.grid(
+            row=2, column=0, sticky="nsew", pady=(theme.SPACING["large"], 0)
+        )
         self.dynamics_canvas = tk.Canvas(
             bottom_card, background=theme.CARD, highlightthickness=0, height=170
         )
@@ -111,24 +125,26 @@ class StatsTab(ttk.Frame):
         self.dynamics_canvas.bind("<Configure>", lambda _e: self._draw_dynamics())
 
         legend = ttk.Frame(bottom_card)
-        legend.pack(fill="x", pady=(8, 0))
+        legend.pack(fill="x", pady=(theme.SPACING["large"], 0))
         tk.Frame(legend, bg=theme.SUCCESS, width=12, height=12).pack(
-            side="left", padx=(2, 0)
+            side="left", padx=(theme.SPACING["small"], 0)
         )
         ttk.Label(legend, text="Доходы", style="Muted.TLabel").pack(
-            side="left", padx=(6, 18)
+            side="left", padx=(theme.SPACING["medium"], theme.SPACING["large"])
         )
         tk.Frame(legend, bg=theme.DANGER, width=12, height=12).pack(
-            side="left", padx=(2, 0)
+            side="left", padx=(theme.SPACING["small"], 0)
         )
         ttk.Label(legend, text="Расходы", style="Muted.TLabel").pack(
-            side="left", padx=(6, 0)
+            side="left", padx=(theme.SPACING["medium"], 0)
         )
 
     def _stat(self, parent, caption: str, variable: tk.StringVar, style: str):
-        outer, card = make_card(parent, padding=(16, 10))
+        outer, card = make_card(parent, padding=theme.CARD_PADDING)
         ttk.Label(card, text=caption, style="StatLabel.TLabel").pack(anchor="w")
-        ttk.Label(card, textvariable=variable, style=style).pack(anchor="w", pady=(3, 0))
+        ttk.Label(card, textvariable=variable, style=style).pack(
+            anchor="w", pady=(theme.SPACING["small"], 0)
+        )
         return outer
 
     def refresh(self) -> None:
@@ -220,6 +236,10 @@ class StatsTab(ttk.Frame):
         height = max(canvas.winfo_height(), 100)
         series = self._dynamics
         if not series:
+            canvas.create_text(
+                width / 2, height / 2, text="Нет данных за период",
+                fill=theme.MUTED,
+            )
             return
 
         pad_top = 14

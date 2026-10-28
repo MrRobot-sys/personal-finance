@@ -30,7 +30,7 @@ STATUS_RANK = {"bad": 0, "neutral": 1, "good": 2}
 
 class CategoriesTab(ttk.Frame):
     def __init__(self, master, service, on_change):
-        super().__init__(master, padding=12)
+        super().__init__(master, padding=theme.SPACING["large"])
         self.service = service
         self.on_change = on_change
         self._build()
@@ -47,16 +47,18 @@ class CategoriesTab(ttk.Frame):
             bar, values=list(TYPE_TO_KIND), state="readonly", width=11
         )
         self.kind_combo.set(ALL_TYPES)
-        self.kind_combo.pack(side="left", padx=8)
+        self.kind_combo.pack(side="left", padx=theme.SPACING["medium"])
         self.kind_combo.bind("<<ComboboxSelected>>", lambda _e: self.refresh())
 
         ttk.Button(
             bar, text="Добавить", style="Accent.TButton", command=self._add
         ).pack(side="right")
-        ttk.Button(bar, text="Удалить", command=self._delete).pack(side="right", padx=8)
+        ttk.Button(
+            bar, text="Удалить", command=self._delete
+        ).pack(side="right", padx=theme.SPACING["medium"])
         ttk.Button(bar, text="Изменить", command=self._edit).pack(side="right")
         ttk.Button(bar, text="План в месяц...", command=self._plan).pack(
-            side="right", padx=(0, 8)
+            side="right", padx=(0, theme.SPACING["medium"])
         )
 
         self.table = TreeTable(
@@ -73,13 +75,15 @@ class CategoriesTab(ttk.Frame):
             height=12,
             on_double_click=self._edit,
         )
-        self.table.frame.pack(fill="both", expand=True, pady=(12, 0))
+        self.table.frame.pack(
+            fill="both", expand=True, pady=(theme.SPACING["large"], 0)
+        )
         self.table.tree.tag_configure("good", foreground=theme.INCOME_FG)
         self.table.tree.tag_configure("bad", foreground=theme.EXPENSE_FG)
 
         self.hint_var = tk.StringVar(value="")
         ttk.Label(card, textvariable=self.hint_var, style="Muted.TLabel").pack(
-            anchor="w", pady=(10, 0)
+            anchor="w", pady=(theme.SPACING["large"], 0)
         )
 
     def refresh(self) -> None:

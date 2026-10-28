@@ -89,7 +89,7 @@ def _date_text(stamp: str) -> str:
 
 class PortfolioView(ttk.Frame):
     def __init__(self, master, service, on_change):
-        super().__init__(master, padding=12)
+        super().__init__(master, padding=theme.SPACING["large"])
         self.service = service
         self.on_change = on_change
         self._selected_id: int | None = None
@@ -109,8 +109,8 @@ class PortfolioView(ttk.Frame):
     # --- построение ---
 
     def _build_toolbar(self) -> None:
-        outer, card = make_card(self, padding=(14, 10))
-        outer.grid(row=0, column=0, sticky="ew", pady=(0, 10))
+        outer, card = make_card(self, padding=theme.CARD_PADDING)
+        outer.grid(row=0, column=0, sticky="ew", pady=(0, theme.SPACING["large"]))
         bar = ttk.Frame(card)
         bar.pack(fill="x")
 
@@ -120,40 +120,42 @@ class PortfolioView(ttk.Frame):
             state="readonly", width=13,
         )
         self.scope_combo.set(SCOPE_CHOICES[0][0])
-        self.scope_combo.pack(side="left", padx=8)
+        self.scope_combo.pack(side="left", padx=theme.SPACING["medium"])
         self.scope_combo.bind("<<ComboboxSelected>>", lambda _e: self._render())
 
         ttk.Button(
             bar, text="Добавить", style="Accent.TButton", command=self._add
-        ).pack(side="left", padx=(12, 0))
+        ).pack(side="left", padx=(theme.SPACING["large"], 0))
 
         self.refresh_btn = ttk.Button(
             bar, text="Обновить цены", command=self._refresh_prices
         )
         self.refresh_btn.pack(side="right")
         ttk.Button(bar, text="Оценить…", command=self._manual_price).pack(
-            side="right", padx=(0, 8)
+            side="right", padx=(0, theme.SPACING["medium"])
         )
         ttk.Button(bar, text="Удалить", command=self._delete).pack(
-            side="right", padx=(0, 8)
+            side="right", padx=(0, theme.SPACING["medium"])
         )
         ttk.Button(bar, text="Изменить", command=self._edit).pack(
-            side="right", padx=(0, 8)
+            side="right", padx=(0, theme.SPACING["medium"])
         )
 
         ttk.Label(card, textvariable=self._status, style="Muted.TLabel").pack(
-            anchor="w", pady=(8, 0)
+            anchor="w", pady=(theme.SPACING["large"], 0)
         )
 
     def _stat(self, parent, caption: str, variable: tk.StringVar, style: str):
-        outer, card = make_card(parent, padding=(14, 9))
+        outer, card = make_card(parent, padding=theme.CARD_PADDING)
         ttk.Label(card, text=caption, style="StatLabel.TLabel").pack(anchor="w")
-        ttk.Label(card, textvariable=variable, style=style).pack(anchor="w", pady=(3, 0))
+        ttk.Label(card, textvariable=variable, style=style).pack(
+            anchor="w", pady=(theme.SPACING["small"], 0)
+        )
         return outer
 
     def _build_summary(self) -> None:
         container = ttk.Frame(self)
-        container.grid(row=1, column=0, sticky="ew", pady=(0, 10))
+        container.grid(row=1, column=0, sticky="ew", pady=(0, theme.SPACING["large"]))
 
         frame = ttk.Frame(container)
         frame.pack(fill="x")
@@ -166,20 +168,20 @@ class PortfolioView(ttk.Frame):
             side="left", fill="both", expand=True
         )
         self._stat(frame, "Имущество", self.property_var, "StatBalance.TLabel").pack(
-            side="left", fill="both", expand=True, padx=(10, 0)
+            side="left", fill="both", expand=True, padx=(theme.SPACING["large"], 0)
         )
         self._stat(frame, "Итого капитал", self.total_var, "StatValue.TLabel").pack(
-            side="left", fill="both", expand=True, padx=(10, 0)
+            side="left", fill="both", expand=True, padx=(theme.SPACING["large"], 0)
         )
         self._stat(frame, "Прибыль", self.profit_var, "StatValue.TLabel").pack(
-            side="left", fill="both", expand=True, padx=(10, 0)
+            side="left", fill="both", expand=True, padx=(theme.SPACING["large"], 0)
         )
         self._stat(frame, "USD/RUB", self.rate_var, "StatValue.TLabel").pack(
-            side="left", fill="both", expand=True, padx=(10, 0)
+            side="left", fill="both", expand=True, padx=(theme.SPACING["large"], 0)
         )
 
         pool = ttk.Frame(container)
-        pool.pack(fill="x", pady=(10, 0))
+        pool.pack(fill="x", pady=(theme.SPACING["large"], 0))
         self.contributed_var = tk.StringVar(value=format_amount(0))
         self.deployed_var = tk.StringVar(value=format_amount(0))
         self.free_var = tk.StringVar(value=format_amount(0))
@@ -188,17 +190,21 @@ class PortfolioView(ttk.Frame):
         ).pack(side="left", fill="both", expand=True)
         self._stat(
             pool, "Вложено в активы", self.deployed_var, "StatValue.TLabel"
-        ).pack(side="left", fill="both", expand=True, padx=(10, 0))
-        free_outer, free_card = make_card(pool, padding=(14, 9))
-        free_outer.pack(side="left", fill="both", expand=True, padx=(10, 0))
+        ).pack(side="left", fill="both", expand=True, padx=(theme.SPACING["large"], 0))
+        free_outer, free_card = make_card(pool, padding=theme.CARD_PADDING)
+        free_outer.pack(
+            side="left", fill="both", expand=True, padx=(theme.SPACING["large"], 0)
+        )
         ttk.Label(free_card, text="Свободно", style="StatLabel.TLabel").pack(anchor="w")
         self._free_value = ttk.Label(
             free_card, textvariable=self.free_var, style="StatValue.TLabel"
         )
-        self._free_value.pack(anchor="w", pady=(3, 0))
+        self._free_value.pack(anchor="w", pady=(theme.SPACING["small"], 0))
 
     def _build_table(self) -> None:
-        outer, card = make_card(self, title="Портфель", padding=8)
+        outer, card = make_card(
+            self, title="Портфель", padding=theme.CARD_PADDING_COMPACT
+        )
         outer.grid(row=2, column=0, sticky="nsew")
         self.table = TreeTable(
             card,
@@ -218,22 +224,31 @@ class PortfolioView(ttk.Frame):
             on_double_click=self._edit,
             on_select=self._on_select,
         )
+        self.empty_var = tk.StringVar(value="")
+        self.empty_label = ttk.Label(
+            card, textvariable=self.empty_var, style="Muted.TLabel"
+        )
+        self.empty_label.pack(anchor="w", pady=theme.SPACING["large"])
         self.table.frame.pack(fill="both", expand=True)
         self.table.tree.tag_configure("gain", foreground=theme.SUCCESS)
         self.table.tree.tag_configure("loss", foreground=theme.DANGER)
 
     def _build_bottom(self) -> None:
         frame = ttk.Frame(self)
-        frame.grid(row=3, column=0, sticky="nsew", pady=(10, 0))
+        frame.grid(row=3, column=0, sticky="nsew", pady=(theme.SPACING["large"], 0))
         frame.columnconfigure(0, weight=3)
         frame.columnconfigure(1, weight=2)
         frame.rowconfigure(0, weight=1)
 
-        trades_outer, trades_card = make_card(frame, title="Сделки", padding=8)
-        trades_outer.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+        trades_outer, trades_card = make_card(
+            frame, title="Сделки", padding=theme.CARD_PADDING_COMPACT
+        )
+        trades_outer.grid(
+            row=0, column=0, sticky="nsew", padx=(0, theme.SPACING["small"])
+        )
 
         head = ttk.Frame(trades_card)
-        head.pack(fill="x", pady=(0, 6))
+        head.pack(fill="x", pady=(0, theme.SPACING["large"]))
         self.trades_title = tk.StringVar(value="Выберите актив")
         ttk.Label(head, textvariable=self.trades_title, style="CardTitle.TLabel").pack(
             side="left"
@@ -242,10 +257,10 @@ class PortfolioView(ttk.Frame):
             side="right"
         )
         ttk.Button(head, text="Продать…", command=self._sell).pack(
-            side="right", padx=(0, 6)
+            side="right", padx=(0, theme.SPACING["medium"])
         )
         ttk.Button(head, text="Купить…", command=self._buy).pack(
-            side="right", padx=(0, 6)
+            side="right", padx=(0, theme.SPACING["medium"])
         )
 
         self.trades_table = TreeTable(
@@ -264,9 +279,13 @@ class PortfolioView(ttk.Frame):
         self.trades_table.frame.pack(fill="both", expand=True)
 
         graph_outer, graph_card = make_card(
-            frame, title="Стоимость портфеля", padding=8
+            frame,
+            title="Стоимость портфеля",
+            padding=theme.CARD_PADDING_COMPACT,
         )
-        graph_outer.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
+        graph_outer.grid(
+            row=0, column=1, sticky="nsew", padx=(theme.SPACING["small"], 0)
+        )
         self.graph_canvas = tk.Canvas(
             graph_card, background=theme.CARD, highlightthickness=0
         )
@@ -357,6 +376,15 @@ class PortfolioView(ttk.Frame):
                 )
             )
         self.table.set_rows(rows)
+        if rows:
+            self.table.frame.pack(fill="both", expand=True)
+            self.empty_label.pack_forget()
+        else:
+            self.table.frame.pack_forget()
+            self.empty_label.pack(anchor="w", pady=theme.SPACING["large"])
+            self.empty_var.set(
+                "Активов пока нет — добавьте первый"
+            )
 
     def _sync_selection(self) -> None:
         if self._selected_id is None:
@@ -652,7 +680,7 @@ class PayoutCalendarView(ttk.Frame):
     """
 
     def __init__(self, master, service, on_change):
-        super().__init__(master, padding=12)
+        super().__init__(master, padding=theme.SPACING["large"])
         self.service = service
         self.on_change = on_change
         today = date.today()
@@ -671,8 +699,8 @@ class PayoutCalendarView(ttk.Frame):
     # --- построение ---
 
     def _build_toolbar(self) -> None:
-        outer, card = make_card(self, padding=(14, 10))
-        outer.grid(row=0, column=0, sticky="ew", pady=(0, 10))
+        outer, card = make_card(self, padding=theme.CARD_PADDING)
+        outer.grid(row=0, column=0, sticky="ew", pady=(0, theme.SPACING["large"]))
         bar = ttk.Frame(card)
         bar.pack(fill="x")
 
@@ -681,35 +709,39 @@ class PayoutCalendarView(ttk.Frame):
         ttk.Label(
             bar, textvariable=self.month_var, style="Value.TLabel",
             width=18, anchor="center",
-        ).pack(side="left", padx=6)
+        ).pack(side="left", padx=theme.SPACING["small"])
         ttk.Button(bar, text="▶", width=3, command=self._next_month).pack(side="left")
-        ttk.Button(bar, text="Сегодня", command=self._today).pack(side="left", padx=(8, 0))
+        ttk.Button(
+            bar, text="Сегодня", command=self._today
+        ).pack(side="left", padx=(theme.SPACING["medium"], 0))
 
-        ttk.Label(bar, text="Актив:").pack(side="left", padx=(18, 4))
+        ttk.Label(bar, text="Актив:").pack(
+            side="left", padx=(theme.SPACING["large"], theme.SPACING["small"])
+        )
         self.asset_combo = ttk.Combobox(bar, state="readonly", width=22)
         self.asset_combo.pack(side="left")
         self.asset_combo.bind("<<ComboboxSelected>>", lambda _e: self.refresh())
 
         ttk.Button(bar, text="Правило…", command=self._add_rule).pack(
-            side="right", padx=(6, 0)
+            side="right", padx=(theme.SPACING["medium"], 0)
         )
         ttk.Button(
             bar, text="Добавить", style="Accent.TButton", command=self._add
         ).pack(side="right")
         ttk.Button(bar, text="Удалить", command=self._delete).pack(
-            side="right", padx=(6, 0)
+            side="right", padx=(theme.SPACING["medium"], 0)
         )
         ttk.Button(bar, text="Изменить", command=self._edit).pack(
-            side="right", padx=(6, 0)
+            side="right", padx=(theme.SPACING["medium"], 0)
         )
         self.refresh_btn = ttk.Button(
             bar, text="Обновить из сети", command=self._fetch_network
         )
-        self.refresh_btn.pack(side="right", padx=(6, 0))
+        self.refresh_btn.pack(side="right", padx=(theme.SPACING["medium"], 0))
 
         self.status_var = tk.StringVar(value="")
         status_row = ttk.Frame(card)
-        status_row.pack(fill="x", pady=(8, 0))
+        status_row.pack(fill="x", pady=(theme.SPACING["large"], 0))
         ttk.Label(
             status_row, textvariable=self.status_var, style="Muted.TLabel"
         ).pack(side="left")
@@ -719,14 +751,18 @@ class PayoutCalendarView(ttk.Frame):
         ).pack(side="right")
 
     def _build_calendar(self) -> None:
-        outer, card = make_card(self, title="Календарь", padding=8)
+        outer, card = make_card(
+            self, title="Календарь", padding=theme.CARD_PADDING_COMPACT
+        )
         outer.grid(row=1, column=0, sticky="ew")
         self.grid_frame = ttk.Frame(card)
         self.grid_frame.pack(fill="x")
 
     def _build_list(self) -> None:
-        outer, card = make_card(self, title="Выплаты за месяц", padding=8)
-        outer.grid(row=2, column=0, sticky="nsew", pady=(10, 0))
+        outer, card = make_card(
+            self, title="Выплаты за месяц", padding=theme.CARD_PADDING_COMPACT
+        )
+        outer.grid(row=2, column=0, sticky="nsew", pady=(theme.SPACING["large"], 0))
         self.table = TreeTable(
             card,
             columns=[
@@ -744,7 +780,7 @@ class PayoutCalendarView(ttk.Frame):
         self.table.frame.pack(fill="both", expand=True)
         self.total_var = tk.StringVar(value="")
         ttk.Label(card, textvariable=self.total_var, style="Muted.TLabel").pack(
-            anchor="w", pady=(8, 0)
+            anchor="w", pady=(theme.SPACING["large"], 0)
         )
 
     # --- данные ---
@@ -797,7 +833,10 @@ class PayoutCalendarView(ttk.Frame):
         for index, name in enumerate(WEEKDAYS):
             ttk.Label(
                 frame, text=name, style="CardTitle.TLabel", anchor="center"
-            ).grid(row=0, column=index, sticky="ew", padx=1, pady=(0, 4))
+            ).grid(
+                row=0, column=index, sticky="ew",
+                padx=theme.SPACING["small"], pady=(0, theme.SPACING["small"]),
+            )
             frame.columnconfigure(index, weight=1)
 
         date_from, date_to = self._month_range()
@@ -817,7 +856,10 @@ class PayoutCalendarView(ttk.Frame):
                     frame, bg=theme.CARD, highlightthickness=1,
                     highlightbackground=theme.BORDER,
                 )
-                cell.grid(row=week_index, column=column, sticky="nsew", padx=1, pady=1)
+                cell.grid(
+                    row=week_index, column=column, sticky="nsew",
+                    padx=theme.SPACING["small"], pady=theme.SPACING["small"],
+                )
                 cell.configure(width=118, height=82)
                 cell.grid_propagate(False)
                 if not day:
@@ -833,7 +875,10 @@ class PayoutCalendarView(ttk.Frame):
                 tk.Label(
                     cell, text=str(day), bg=theme.CARD, fg=theme.TEXT,
                     font=theme.make_font(10, "bold"),
-                ).pack(anchor="nw", padx=4, pady=(2, 0))
+                ).pack(
+                    anchor="nw", padx=theme.SPACING["small"],
+                    pady=(theme.SPACING["small"], 0),
+                )
 
                 day_entries = by_day.get(day, [])
                 if day_entries:
@@ -843,20 +888,23 @@ class PayoutCalendarView(ttk.Frame):
                     tk.Label(
                         cell, text=_short_money(total), bg=theme.CARD, fg=color,
                         font=theme.make_font(10),
-                    ).pack(anchor="w", padx=4)
+                    ).pack(anchor="w", padx=theme.SPACING["small"])
                     dots = tk.Frame(cell, bg=theme.CARD)
-                    dots.pack(anchor="w", padx=4)
+                    dots.pack(anchor="w", padx=theme.SPACING["small"])
                     for entry in day_entries[:5]:
                         tk.Frame(
                             dots, bg=_payout_color(entry.kind),
                             width=6, height=6,
-                        ).pack(side="left", padx=1)
+                        ).pack(side="left", padx=theme.SPACING["small"])
                     due = [e for e in day_entries if e.is_due]
                     if due:
                         ttk.Button(
                             cell, text="Получить", style="Compact.TButton",
                             command=lambda d=day: self._receive_day(d),
-                        ).pack(anchor="w", padx=4, pady=(2, 0))
+                        ).pack(
+                            anchor="w", padx=theme.SPACING["small"],
+                            pady=(theme.SPACING["small"], 0),
+                        )
                 cell.bind("<Button-1>", lambda _e, d=day: self._select_day(d))
 
     def _fill_list(self) -> None:

@@ -162,6 +162,26 @@ def __getattr__(name: str):
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
+# --- константы вёрстки ---
+
+# Расстояния между элементами интерфейса: мелкий / средний / крупный.
+SPACING = {"small": 4, "medium": 8, "large": 12}
+
+# Внутренний отступ содержимого карточки.
+CARD_PADDING = 14
+# Компактный отступ содержимого карточки таблиц и графиков.
+CARD_PADDING_COMPACT = 8
+
+# Заголовок секции внутри карточки: размер и вес шрифта.
+HEADER_FONT_SIZE = 12
+HEADER_FONT_WEIGHT = "bold"
+
+
+def header_font() -> tkfont.Font:
+    """Шрифт заголовка секции карточки (единый источник оформления)."""
+    return make_font(HEADER_FONT_SIZE, HEADER_FONT_WEIGHT)
+
+
 # --- шрифты и стили --------------------------------------------------------
 
 
@@ -185,7 +205,7 @@ def apply_theme(root: tk.Misc) -> ttk.Style:
     small_bold = make_font(11, "bold")
     bold = make_font(13, "bold")
     title = make_font(18, "bold")
-    card_title = make_font(12, "bold")
+    card_title = header_font()
     stat_value = make_font(20, "bold")
 
     root.configure(bg=p["CARD"])
