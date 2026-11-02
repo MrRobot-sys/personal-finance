@@ -6,6 +6,9 @@
 ``theme.CARD``, ``theme.MUTED`` и т. п. Роли вычисляются динамически
 (см. :func:`__getattr__`), поэтому обращение к ним всегда возвращает цвет
 текущей палитры, а не значение, зафиксированное при импорте модуля.
+Смена темы на лету выполняется в :class:`finance.ui.app.App`: после
+:func:`save_theme` и :func:`apply_theme` окно пересобирается, так как
+tk-виджеты запоминают цвета при создании.
 """
 from __future__ import annotations
 
@@ -240,6 +243,21 @@ def apply_theme(root: tk.Misc) -> ttk.Style:
         "TButton",
         background=[("active", p["BUTTON_ACTIVE"]), ("pressed", p["BUTTON_PRESSED"])],
         foreground=[("active", p["TEXT"])],
+    )
+    # Переключатель темы в шапке: контурная кнопка, заметная на фоне карточки.
+    style.configure(
+        "Theme.TButton",
+        background=p["BUTTON_BG"], foreground=p["TEXT"],
+        bordercolor=p["BORDER"], lightcolor=p["BORDER"], darkcolor=p["BORDER"],
+        borderwidth=1, relief="solid", padding=(12, 6), font=small_bold,
+    )
+    style.map(
+        "Theme.TButton",
+        background=[("active", p["BUTTON_ACTIVE"]), ("pressed", p["BUTTON_PRESSED"])],
+        foreground=[("active", p["ACCENT"])],
+        bordercolor=[("active", p["ACCENT"])],
+        lightcolor=[("active", p["ACCENT"])],
+        darkcolor=[("active", p["ACCENT"])],
     )
     style.configure(
         "Accent.TButton",

@@ -1,8 +1,10 @@
 """Главное окно приложения."""
 from __future__ import annotations
 
+import sys
 import tkinter as tk
 from datetime import date
+from pathlib import Path
 from tkinter import messagebox, ttk
 
 from ..models import MONTH_NAMES, format_amount
@@ -16,6 +18,79 @@ from .tabs.transactions_tab import TransactionsTab
 from .widgets import add_divider
 
 
+class _Tooltip:
+    """Всплывающая подсказка для кнопки в шапке окна.
+
+    У ttk нет штатной подсказки, поэтому это отдельное безрамочное окно
+    ``Toplevel``. Атрибут ``_is_tooltip`` помечает его для
+    :meth:`App._has_modal`: подсказка не должна считаться модальным диалогом.
+    """
+
+    #: Задержка перед показом, мс: подсказка не мелькает при движении курсора.
+    DELAY_MS = 400
+
+    def __init__(self, widget: tk.Misc, text):
+        self._widget = widget
+        self._text = text
+        self._win: tk.Toplevel | None = None
+        self._label: tk.Label | None = None
+        self._job: str | None = None
+        widget.bind("<Enter>", self._schedule, add="+")
+        widget.bind("<Leave>", self._hide, add="+")
+        widget.bind("<ButtonPress>", self._hide, add="+")
+
+    def _schedule(self, _event=None) -> None:
+        self._cancel()
+        try:
+            self._job = self._widget.after(self.DELAY_MS, self._show)
+        except tk.TclError:
+            self._job = None
+
+    def _cancel(self) -> None:
+        if self._job is not None:
+            try:
+                self._widget.after_cancel(self._job)
+            except tk.TclError:
+                pass
+            self._job = None
+
+    def _show(self) -> None:
+        self._job = None
+        try:
+            x = self._widget.winfo_rootx()
+            y = self._widget.winfo_rooty() + self._widget.winfo_height() + 6
+        except tk.TclError:
+            return
+        text = self._text() if callable(self._text) else self._text
+        if self._win is None:
+            self._win = tk.Toplevel(self._widget)
+            self._win._is_tooltip = True  # type: ignore[attr-defined]
+            self._win.overrideredirect(True)
+            self._win.attributes("-topmost", True)
+            self._label = tk.Label(
+                self._win,
+                text="",
+                background=theme.TOOLTIP_BG,
+                foreground=theme.TOOLTIP_FG,
+                font=theme.make_font(11),
+                padx=10,
+                pady=5,
+            )
+            self._label.pack()
+        self._label.configure(text=text)
+        self._win.geometry(f"+{x}+{y}")
+        self._win.deiconify()
+        self._win.lift()
+
+    def _hide(self, _event=None) -> None:
+        self._cancel()
+        if self._win is not None:
+            try:
+                self._win.withdraw()
+            except tk.TclError:
+                pass
+
+
 class App(tk.Tk):
     def __init__(self, service: FinanceService):
         super().__init__()
@@ -26,10 +101,32 @@ class App(tk.Tk):
 
         theme.load_theme(self.service.repo)
         theme.apply_theme(self)
+        self._icon_image = self._load_icon()
         self._build_header()
         self._build_menu()
         self._build_body()
         self.refresh_all()
+
+    def _load_icon(self) -> tk.PhotoImage | None:
+        """Загружает иконку приложения и устанавливает её окну.
+
+        Путь зависит от способа запуска: из исходников — каталог
+        проекта, из сборки PyInstaller onefile — каталог
+        ``sys._MEIPASS``. Если файла нет, запуск продолжается без
+        иконки. Ссылка на изображение сохраняется в атрибуте окна,
+        иначе объект будет собран сборщиком мусора.
+        """
+        if getattr(sys, "frozen", False):
+            base = Path(sys._MEIPASS)  # type: ignore[attr-defined]
+        else:
+            base = Path(__file__).resolve().parents[2]
+        path = base / "finance" / "ui" / "assets" / "icon.png"
+        try:
+            image = tk.PhotoImage(file=str(path))
+            self.iconphoto(True, image)
+        except (OSError, tk.TclError):
+            return None
+        return image
 
     def _build_header(self) -> None:
         header = ttk.Frame(self, padding=(18, 14, 18, 14))
@@ -37,6 +134,14 @@ class App(tk.Tk):
         ttk.Label(header, text="Учёт личных финансов", style="Title.TLabel").pack(
             side="left"
         )
+
+        # Крайний правый край шапки: переключатель темы всегда на одном месте.
+        self._theme_btn = ttk.Button(
+            header, style="Theme.TButton", command=self._toggle_theme
+        )
+        self._theme_btn.pack(side="right", padx=(theme.SPACING["large"], 0))
+        self._theme_tip = _Tooltip(self._theme_btn, self._theme_hint)
+        self._update_theme_btn()
 
         chips = ttk.Frame(header)
         chips.pack(side="right")
@@ -68,6 +173,71 @@ class App(tk.Tk):
             font=theme.make_font(14, "bold"),
         ).pack(anchor="e", padx=12, pady=(0, 7))
         return box
+
+    def _next_theme(self) -> str:
+        """Тема, которая включится по нажатию кнопки в шапке."""
+        return theme.DARK if theme.current_theme() == theme.LIGHT else theme.LIGHT
+
+    def _update_theme_btn(self) -> None:
+        """Подпись кнопки: иконка и название темы, в которую переключимся."""
+        target = self._next_theme()
+        if target == theme.DARK:
+            text = "🌙 Тёмная тема"
+        else:
+            text = "☀️ Светлая тема"
+        self._theme_btn.configure(text=text)
+
+    def _theme_hint(self) -> str:
+        """Текст подсказки кнопки темы (с учётом текущей темы)."""
+        if theme.current_theme() == theme.LIGHT:
+            return "Сейчас светлая тема. Нажмите, чтобы включить тёмную."
+        return "Сейчас тёмная тема. Нажмите, чтобы включить светлую."
+
+    def _toggle_theme(self) -> None:
+        """Переключить тему на противоположную и применить её сразу."""
+        self._apply_theme_now(self._next_theme())
+
+    def _apply_theme_now(self, theme_name: str) -> None:
+        """Сделать тему активной, сохранить выбор и сразу пересобрать окно.
+
+        tkinter запоминает цвета виджета при создании, поэтому смены активной
+        палитры недостаточно: tk-виджеты с явным ``bg`` (чипы шапки) остались
+        бы в прежних цветах. Выбрана пересборка содержимого окна, а не
+        перезапуск процесса через ``os.exec``: пересборка дешевле, сохраняет
+        положение окна и активную вкладку и не обрывает работу сервиса.
+        """
+        theme.save_theme(self.service.repo, theme_name)
+        theme.apply_theme(self)
+        self._rebuild_ui()
+
+    def _rebuild_ui(self) -> None:
+        """Уничтожить и заново построить шапку, меню и вкладки под новую тему."""
+        active_tab = self._selected_tab_index()
+        geometry = self.geometry()
+        # Меню — тоже дочерний виджет корня: снимаем его до уничтожения детей,
+        # чтобы Tk не остался со ссылкой на удалённый объект.
+        self.config(menu="")
+        for child in self.winfo_children():
+            # Вместе с дочерними виджетами уничтожаются и их Toplevel-потомки
+            # (диалоги, подсказки), поэтому отдельный проход не нужен.
+            child.destroy()
+        self._build_header()
+        self._build_menu()
+        self._build_body()
+        if active_tab is not None:
+            self.notebook.select(active_tab)
+        self.geometry(geometry)
+        self.refresh_all()
+
+    def _selected_tab_index(self) -> int | None:
+        """Номер выбранной вкладки; ``None``, если вкладок ещё нет."""
+        notebook = getattr(self, "notebook", None)
+        if notebook is None or not notebook.tabs():
+            return None
+        try:
+            return notebook.index(notebook.select())
+        except tk.TclError:
+            return None
 
     def _build_menu(self) -> None:
         menubar = tk.Menu(self)
@@ -171,6 +341,8 @@ class App(tk.Tk):
 
     def _has_modal(self, widget) -> bool:
         for child in widget.winfo_children():
+            if getattr(child, "_is_tooltip", False):
+                continue
             if isinstance(child, tk.Toplevel) and child.winfo_ismapped():
                 return True
             if self._has_modal(child):
@@ -190,13 +362,11 @@ class App(tk.Tk):
             return
         self.service.save_auto_settings(dialog.result)
         if dialog.theme_name != theme.current_theme():
-            theme.save_theme(self.service.repo, dialog.theme_name)
-            messagebox.showinfo(
-                "Тема",
-                "Тема изменится после перезапуска приложения.",
-                parent=self,
-            )
-        self.investments_tab.reschedule_auto()
+            # Пересборка окна создаёт вкладку «Инвестиции» заново, и она сама
+            # ставит таймеры автообновления по сохранённым настройкам.
+            self._apply_theme_now(dialog.theme_name)
+        else:
+            self.investments_tab.reschedule_auto()
 
     def _about(self) -> None:
         messagebox.showinfo(

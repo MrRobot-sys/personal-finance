@@ -83,7 +83,7 @@ class SettingsDialog(FormDialog):
             ).pack(side="left", padx=(0, 16))
         ttk.Label(
             parent,
-            text="Применится после перезапуска приложения.",
+            text="Тема применится сразу после сохранения.",
             style="Muted.TLabel",
         ).grid(row=7, column=0, columnspan=3, sticky="w", pady=(2, 0))
         parent.columnconfigure(1, weight=1)
