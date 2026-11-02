@@ -288,25 +288,37 @@ class CanvasTooltip:
     """Всплывающая подсказка над элементами canvas-диаграмм.
     resolve(event, canvas) возвращает текст подсказки или None."""
 
+    #: Задержка скрытия, мс: гасит подсказку при кратком перескоке курсора
+    #: через край канваса, не давая ей мигать.
+    HIDE_DELAY_MS = 150
+
     def __init__(self, canvas: tk.Canvas, resolve: Callable):
         self.canvas = canvas
         self.resolve = resolve
         self._win: tk.Toplevel | None = None
         self._label: tk.Label | None = None
         self._last: tuple | None = None
+        self._watch_job: str | None = None
+        self._hide_job: str | None = None
         canvas.bind("<Motion>", self._on_motion, add="+")
-        canvas.bind("<Leave>", lambda _e: self.hide(), add="+")
+        canvas.bind("<Leave>", self._on_leave, add="+")
 
     def _on_motion(self, event) -> None:
         text = self.resolve(event, self.canvas)
         if text is None or not text.strip():
             self.hide()
             return
+        # Курсор снова над зоной — отменяем отложенное скрытие, если оно ждёт.
+        self._cancel_hide()
         zone = (event.x_root, event.y_root, text)
         if zone == self._last:
             return
         self._last = zone
         self._show(event.x_root, event.y_root, text)
+
+    def _on_leave(self, _event) -> None:
+        """Курсор ушёл с канваса: скрываем с небольшой задержкой."""
+        self._schedule_hide()
 
     def _show(self, x: int, y: int, text: str) -> None:
         if self._win is None:
@@ -324,9 +336,100 @@ class CanvasTooltip:
         self._win.wm_geometry(f"+{x + 14}+{y + 12}")
         self._win.deiconify()
         self._win.lift()
+        self._start_watch()
+
+    def _start_watch(self) -> None:
+        """Сторожевой опрос: <Leave> на macOS Tk может не дойти до канваса
+        (выход курсора через край окна/канваса во время быстрого движения),
+        поэтому пока подсказка видима, сами проверяем, что курсор над канвасом
+        или над самой подсказкой. Интервал 120 мс — заметная плавность при
+        нулевой нагрузке."""
+        self._cancel_watch()
+        self._watch_job = self.canvas.after(120, self._watch)
+
+    def _cancel_watch(self) -> None:
+        if self._watch_job is not None:
+            try:
+                self.canvas.after_cancel(self._watch_job)
+            except tk.TclError:
+                pass
+            self._watch_job = None
+
+    @staticmethod
+    def _is_within(widget, root) -> bool:
+        """True, если widget — сам root или его потомок.
+
+        Сравнение по строковым Tcl-путям (вида ``.!toplevel.!label``),
+        поскольку winfo_containing возвращает конечный дочерний виджет
+        (метку подсказки), а не Toplevel."""
+        path, root_path = str(widget), str(root)
+        return path == root_path or path.startswith(root_path + ".")
+
+    def _pointer_over_us(self) -> bool:
+        """Курсор сейчас над канвасом или над окном подсказки?"""
+        try:
+            x = self.canvas.winfo_pointerx()
+            y = self.canvas.winfo_pointery()
+            over = self.canvas.winfo_containing(x, y)
+        except tk.TclError:
+            # Курсор над чужим окном/вне экрана: считаем, что не над нами.
+            return False
+        if over is None:
+            return False
+        if self._is_within(over, self.canvas):
+            return True
+        return self._win is not None and self._is_within(over, self._win)
+
+    def _watch(self) -> None:
+        self._watch_job = None
+        try:
+            visible = self._win is not None and self._win.winfo_viewable()
+        except tk.TclError:
+            # Окно уничтожено (закрытие приложения) — сторожу нечего делать.
+            visible = False
+        if not visible:
+            self._cancel_watch()
+            return
+        if self._pointer_over_us():
+            self._cancel_hide()
+        else:
+            # Курсор ушёл: скрываем с задержкой, но сторож продолжает
+            # следить — курсор может вернуться раньше, чем задержка истечёт.
+            self._schedule_hide()
+        try:
+            self._watch_job = self.canvas.after(120, self._watch)
+        except tk.TclError:
+            # Канвас разрушен — цепочку опроса прерываем.
+            self._watch_job = None
+
+    def _schedule_hide(self) -> None:
+        """Отложить скрытие: повторные запросы не плодят таймеры."""
+        if self._hide_job is not None:
+            return
+        try:
+            self._hide_job = self.canvas.after(self.HIDE_DELAY_MS, self._delayed_hide)
+        except tk.TclError:
+            self._hide_job = None
+
+    def _cancel_hide(self) -> None:
+        if self._hide_job is not None:
+            try:
+                self.canvas.after_cancel(self._hide_job)
+            except tk.TclError:
+                pass
+            self._hide_job = None
+
+    def _delayed_hide(self) -> None:
+        self._hide_job = None
+        if self._pointer_over_us():
+            # Курсор вернулся за время задержки — подсказку оставляем.
+            return
+        self.hide()
 
     def hide(self) -> None:
         self._last = None
+        self._cancel_watch()
+        self._cancel_hide()
         if self._win is not None:
             self._win.withdraw()
 
