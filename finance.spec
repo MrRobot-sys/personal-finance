@@ -10,7 +10,7 @@ a = Analysis(
     ["main.py"],
     pathex=["."],
     binaries=[],
-    datas=[],
+    datas=[("finance/ui/assets/icon.png", "finance/ui/assets")],
     hiddenimports=[
         "finance.importers",
         "finance.quotes",
@@ -32,6 +32,7 @@ exe = EXE(
     a.datas,
     [],
     name="PersonalFinance",
+    icon="finance/ui/assets/icon.ico",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
